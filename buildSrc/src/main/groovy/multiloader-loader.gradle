@@ -41,7 +41,7 @@ publishMods {
 
     curseforge {
         accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
-        projectId = ""
+        projectId = "1596440"
         minecraftVersions.add("${minecraft_version}")
 
         requires("yacl")
@@ -49,7 +49,7 @@ publishMods {
 
     modrinth {
         accessToken = providers.environmentVariable("MODRINTH_TOKEN")
-        projectId = ""
+        projectId = "FD6cyuqK"
         minecraftVersions.add("${minecraft_version}")
 
         requires("yacl")

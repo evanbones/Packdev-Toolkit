@@ -20,6 +20,8 @@ dump lang entries, search datapacks, and copy item IDs: all without leaving the 
 Press the export key (default: **`O`**) to pull whatever you're looking at into a checklist screen, where you pick which
 files to copy into your export folder:
 
+![Texture Extraction](https://raw.githubusercontent.com/evanbones/Packdev-Toolkit/refs/heads/1.21.1/images/extraction_screen.png)
+
 - **Looking at a block**: grabs every texture used by its current block model (including block entities like chests).
 - **Looking at an entity**: grabs its texture.
 - **Holding an item**: grabs the item's texture(s).
@@ -27,8 +29,12 @@ files to copy into your export folder:
 - **Hovering a recipe in EMI's recipe viewer**: saves the recipe straight to a datapack JSON file (singleplayer
   only).
 
+![Recipe Extraction](https://raw.githubusercontent.com/evanbones/Packdev-Toolkit/refs/heads/1.21.1/images/recipe_extraction.png)
+
 Hold **Shift** while pressing the export key to instead grab the raw JSON definitions (blockstate + block model, or
 item model) instead of the PNG textures.
+
+![Blockstate Extraction](https://raw.githubusercontent.com/evanbones/Packdev-Toolkit/refs/heads/1.21.1/images/blockstate_extraction.png)
 
 Selected files are copied into your configured export directory (see [Configuration](#configuration)) and the containing
 folder is opened for you automatically.
@@ -66,7 +72,7 @@ the matching file IDs to a JSON file in your export folder (`queries/` subfolder
 | `/query find_block_in_features <block>`   | `worldgen/configured_feature` JSON for the block ID           |
 | `/query find_block_in_structures <block>` | `.nbt` structure files whose block palette contains the block |
 
-Useful for answering "what loot table drops this?" or "which structures use this block?" without manually searching
+Useful for answering "which loot tables have this?" or "which structures use this block?" without manually searching
 through datapack files.
 
 ## Configuration
