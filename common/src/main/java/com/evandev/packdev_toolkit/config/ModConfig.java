@@ -6,7 +6,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.isxander.yacl3.api.ConfigCategory;
 import dev.isxander.yacl3.api.Option;
+import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.YetAnotherConfigLib;
+import dev.isxander.yacl3.api.controller.StringControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -24,6 +26,7 @@ public class ModConfig {
     private static ModConfig INSTANCE;
 
     public boolean exampleOption;
+    public String exportDirectory = "packdev_toolkit_exports";
 
     public static ModConfig get() {
         if (INSTANCE == null) {
@@ -62,7 +65,8 @@ public class ModConfig {
 
         ConfigCategory.Builder general = ConfigCategory.createBuilder()
                 .name(Component.translatable("config.packdev_toolkit.category.general"))
-                .option(createBoolOption("example_option", true, () -> get().exampleOption, val -> get().exampleOption = val));
+                .option(createBoolOption("example_option", true, () -> get().exampleOption, val -> get().exampleOption = val))
+                .option(createStringOption("export_directory", "packdev_toolkit_exports", () -> get().exportDirectory, val -> get().exportDirectory = val));
 
         return builder.category(general.build()).build().generateScreen(parent);
     }
@@ -72,6 +76,15 @@ public class ModConfig {
                 .name(Component.translatable("config.packdev_toolkit.option." + name))
                 .binding(defaultValue, getter, setter)
                 .controller(TickBoxControllerBuilder::create)
+                .build();
+    }
+
+    private static Option<String> createStringOption(String name, String defaultValue, Supplier<String> getter, Consumer<String> setter) {
+        return Option.<String>createBuilder()
+                .name(Component.translatable("config.packdev_toolkit.option." + name))
+                .description(OptionDescription.of(Component.translatable("config.packdev_toolkit.option." + name + ".desc")))
+                .binding(defaultValue, getter, setter)
+                .controller(StringControllerBuilder::create)
                 .build();
     }
 }

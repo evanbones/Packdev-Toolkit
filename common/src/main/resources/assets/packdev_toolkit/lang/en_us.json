@@ -1,4 +1,17 @@
 {
   "config.packdev_toolkit.title": "Packdev Toolkit Config",
-  "config.packdev_toolkit.category.general": "General"
+  "config.packdev_toolkit.category.general": "General",
+  "config.packdev_toolkit.option.example_option": "Example Option",
+  "config.packdev_toolkit.option.export_directory": "Export Directory",
+  "config.packdev_toolkit.option.export_directory.desc": "The directory that asset, model, and recipe exports are written to. Can be relative to the game directory or an absolute path (e.g. C:/Users/Name/Downloads).",
+  "key.categories.packdev_toolkit": "Packdev Toolkit",
+  "key.packdev_toolkit.export": "Export Hovered Asset/Recipe",
+  "key.packdev_toolkit.copy_translation_key": "Copy Translation Key",
+  "command.packdev_toolkit.dump.title.hand": "Item in hand",
+  "command.packdev_toolkit.dump.title.hotbar": "Hotbar items",
+  "command.packdev_toolkit.dump.title.inventory": "Inventory items",
+  "command.packdev_toolkit.dump.hand_empty": "You are not holding an item.",
+  "command.packdev_toolkit.dump.hotbar_empty": "Your hotbar is empty.",
+  "command.packdev_toolkit.dump.inventory_empty": "Your inventory is empty.",
+  "command.packdev_toolkit.dump.copy_tooltip": "Click to copy to clipboard"
 }
