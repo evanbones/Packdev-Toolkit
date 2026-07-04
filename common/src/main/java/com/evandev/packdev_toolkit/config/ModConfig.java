@@ -25,7 +25,6 @@ public class ModConfig {
     private static final File CONFIG_FILE = Services.PLATFORM.getConfigDirectory().resolve(Constants.MOD_ID + ".json").toFile();
     private static ModConfig INSTANCE;
 
-    public boolean exampleOption;
     public String exportDirectory = "packdev_toolkit_exports";
 
     public static ModConfig get() {
@@ -65,7 +64,6 @@ public class ModConfig {
 
         ConfigCategory.Builder general = ConfigCategory.createBuilder()
                 .name(Component.translatable("config.packdev_toolkit.category.general"))
-                .option(createBoolOption("example_option", true, () -> get().exampleOption, val -> get().exampleOption = val))
                 .option(createStringOption("export_directory", "packdev_toolkit_exports", () -> get().exportDirectory, val -> get().exportDirectory = val));
 
         return builder.category(general.build()).build().generateScreen(parent);

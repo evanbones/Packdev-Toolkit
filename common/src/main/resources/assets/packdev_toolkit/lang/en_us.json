@@ -1,7 +1,6 @@
 {
   "config.packdev_toolkit.title": "Packdev Toolkit Config",
   "config.packdev_toolkit.category.general": "General",
-  "config.packdev_toolkit.option.example_option": "Example Option",
   "config.packdev_toolkit.option.export_directory": "Export Directory",
   "config.packdev_toolkit.option.export_directory.desc": "The directory that asset, model, and recipe exports are written to. Can be relative to the game directory or an absolute path (e.g. C:/Users/Name/Downloads).",
   "key.categories.packdev_toolkit": "Packdev Toolkit",

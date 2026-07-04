@@ -107,11 +107,28 @@ public class ExportSelectionScreen extends Screen {
                     try (InputStream in = resourceOpt.get().open()) {
                         Files.copy(in, targetFile);
                         Constants.LOG.info("Successfully extracted asset to {}", targetFile);
-                        return targetDir;
                     }
-                } else {
-                    return targetDir;
                 }
+
+                if (resource.getPath().endsWith(".png")) {
+                    ResourceLocation mcmetaResource = ResourceLocation.fromNamespaceAndPath(
+                            resource.getNamespace(),
+                            resource.getPath() + ".mcmeta"
+                    );
+                    Path mcmetaTargetFile = getTargetFile(mcmetaResource);
+
+                    if (!Files.exists(mcmetaTargetFile)) {
+                        var mcmetaOpt = resourceManager.getResource(mcmetaResource);
+                        if (mcmetaOpt.isPresent()) {
+                            try (InputStream metaIn = mcmetaOpt.get().open()) {
+                                Files.copy(metaIn, mcmetaTargetFile);
+                                Constants.LOG.info("Successfully extracted mcmeta to {}", mcmetaTargetFile);
+                            }
+                        }
+                    }
+                }
+
+                return targetDir;
             } else {
                 Constants.LOG.warn("Could not find the resource for {}", resource);
             }
