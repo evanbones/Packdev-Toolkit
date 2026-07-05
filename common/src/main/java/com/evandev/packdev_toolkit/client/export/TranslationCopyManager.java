@@ -16,9 +16,6 @@ import net.minecraft.world.phys.HitResult;
  */
 public class TranslationCopyManager {
 
-    private TranslationCopyManager() {
-    }
-
     public static void handleCopyKeyPress(Minecraft mc) {
         String descriptionId = resolveDescriptionId(mc);
         if (descriptionId == null) {
@@ -35,7 +32,7 @@ public class TranslationCopyManager {
 
     private static String resolveDescriptionId(Minecraft mc) {
         if (Services.PLATFORM.isModLoaded("emi")) {
-            ItemStack hovered = EmiExportSupport.getHoveredStack();
+            ItemStack hovered = EmiExportSupport.getHoveredStack(mc);
             if (!hovered.isEmpty()) {
                 return hovered.getItem().getDescriptionId();
             }

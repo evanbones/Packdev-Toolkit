@@ -25,7 +25,12 @@ public class ModConfig {
     private static final File CONFIG_FILE = Services.PLATFORM.getConfigDirectory().resolve(Constants.MOD_ID + ".json").toFile();
     private static ModConfig INSTANCE;
 
-    public String exportDirectory = "packdev_toolkit_exports";
+    @Deprecated
+    public String exportDirectory = null;
+
+    public String resourcePackExportDirectory = "packdev_toolkit_resource_pack";
+    public String dataPackExportDirectory = "packdev_toolkit_data_pack";
+    public String queriesExportDirectory = "packdev_toolkit_queries";
 
     public static ModConfig get() {
         if (INSTANCE == null) {
@@ -38,6 +43,13 @@ public class ModConfig {
         if (CONFIG_FILE.exists()) {
             try (FileReader reader = new FileReader(CONFIG_FILE)) {
                 INSTANCE = GSON.fromJson(reader, ModConfig.class);
+                if (INSTANCE != null && INSTANCE.exportDirectory != null) {
+                    INSTANCE.resourcePackExportDirectory = INSTANCE.exportDirectory;
+                    INSTANCE.dataPackExportDirectory = INSTANCE.exportDirectory;
+                    INSTANCE.queriesExportDirectory = INSTANCE.exportDirectory;
+                    INSTANCE.exportDirectory = null;
+                    save();
+                }
             } catch (Exception e) {
                 Constants.LOG.error("Failed to load " + Constants.MOD_ID + ".json", e);
                 INSTANCE = new ModConfig();
@@ -64,7 +76,9 @@ public class ModConfig {
 
         ConfigCategory.Builder general = ConfigCategory.createBuilder()
                 .name(Component.translatable("config.packdev_toolkit.category.general"))
-                .option(createStringOption("export_directory", "packdev_toolkit_exports", () -> get().exportDirectory, val -> get().exportDirectory = val));
+                .option(createStringOption("resource_pack_export_directory", "packdev_toolkit_resource_pack", () -> get().resourcePackExportDirectory, val -> get().resourcePackExportDirectory = val))
+                .option(createStringOption("data_pack_export_directory", "packdev_toolkit_data_pack", () -> get().dataPackExportDirectory, val -> get().dataPackExportDirectory = val))
+                .option(createStringOption("queries_export_directory", "packdev_toolkit_queries", () -> get().queriesExportDirectory, val -> get().queriesExportDirectory = val));
 
         return builder.category(general.build()).build().generateScreen(parent);
     }

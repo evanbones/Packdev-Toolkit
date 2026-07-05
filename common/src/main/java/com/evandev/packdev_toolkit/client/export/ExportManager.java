@@ -49,7 +49,7 @@ public class ExportManager {
                 return;
             }
 
-            ItemStack hovered = EmiExportSupport.getHoveredStack();
+            ItemStack hovered = EmiExportSupport.getHoveredStack(mc);
             if (!hovered.isEmpty()) {
                 exportItem(mc, hovered, shiftDown);
                 return;

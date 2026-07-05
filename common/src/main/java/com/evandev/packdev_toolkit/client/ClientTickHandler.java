@@ -1,5 +1,6 @@
 package com.evandev.packdev_toolkit.client;
 
+import com.evandev.packdev_toolkit.client.export.DescriptionExportManager;
 import com.evandev.packdev_toolkit.client.export.ExportManager;
 import com.evandev.packdev_toolkit.client.export.TranslationCopyManager;
 import com.evandev.packdev_toolkit.client.keybind.ModKeyBindings;
@@ -13,6 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 public class ClientTickHandler {
     private static boolean exportWasDown = false;
     private static boolean copyWasDown = false;
+    private static boolean descriptionWasDown = false;
 
     private ClientTickHandler() {
     }
@@ -29,6 +31,12 @@ public class ClientTickHandler {
             TranslationCopyManager.handleCopyKeyPress(mc);
         }
         copyWasDown = copyDown;
+
+        boolean descriptionDown = isPhysicallyDown(mc, ModKeyBindings.EXPORT_DESCRIPTION);
+        if (descriptionDown && !descriptionWasDown && !isTypingInField(mc)) {
+            DescriptionExportManager.handleExportDescription(mc);
+        }
+        descriptionWasDown = descriptionDown;
     }
 
     private static boolean isPhysicallyDown(Minecraft mc, KeyMapping mapping) {

@@ -45,6 +45,7 @@ publishMods {
         minecraftVersions.add("${minecraft_version}")
 
         requires("yacl")
+        optional("item-descriptions")
     }
 
     modrinth {
@@ -53,5 +54,6 @@ publishMods {
         minecraftVersions.add("${minecraft_version}")
 
         requires("yacl")
+        optional("item-descriptions")
     }
 }

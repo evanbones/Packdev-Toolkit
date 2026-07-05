@@ -50,16 +50,33 @@ copy its lang entry to your clipboard:
 
 Handy for quickly building `en_us.json` entries for modpack renames.
 
-### Dump item IDs (`/export`)
+### Item Descriptions exports (`Z`)
 
-Grabs item IDs posts them to chat as a single copyable JSON array (click the message to copy it to your clipboard).
-Useful for making tags or loot tables without manually typing IDs.
+With [Item Descriptions](https://modrinth.com/mod/item-descriptions) loaded, you can grab descriptions directly in their
+expected format.
 
-| Command             | Dumps                                             |
-|---------------------|---------------------------------------------------|
-| `/export hand`      | The item in your main hand                        |
-| `/export hotbar`    | All 9 hotbar slots + offhand (duplicates ignored) |
-| `/export inventory` | Your entire inventory (duplicates ignored)        |
+Press the export description key (default: **`Z`**) while looking at a block/entity, holding an item, or hovering an
+item/tag in EMI to automatically append its description lang key to your resource pack's `en_us.json` file.
+
+This automatically merges with your existing `en_us.json` if it exists, without overwriting other entries.
+
+### Dump item IDs and registries (`/export`)
+
+Grabs item IDs, registries, or tag entries and saves them. Click the chat message to copy to your clipboard or
+open the exported JSON file in your `queries` folder.
+
+| Command                              | Dumps / Exports                                               |
+|--------------------------------------|---------------------------------------------------------------|
+| `/export hand`                       | The item in your main hand (as copyable chat array)           |
+| `/export hotbar`                     | All 9 hotbar slots + offhand (as copyable chat array)         |
+| `/export inventory`                  | Your entire inventory (as copyable chat array)                |
+| `/export biomes`                     | All registered biomes (as a JSON file in your queries folder) |
+| `/export structures`                 | All registered structures (as a JSON file)                    |
+| `/export configured_features`        | All registered configured features (as a JSON file)           |
+| `/export placed_features`            | All registered placed features (as a JSON file)               |
+| `/export registry <registry_id>`     | All entries in any registry (as a JSON file)                  |
+| `/export tag <registry_id> <tag_id>` | All entries inside a specific tag (as a JSON file)            |
+| `/export tags_of <registry> <entry>` | All tags that a specific entry belongs to (as a JSON file)    |
 
 ### Search datapacks for item/block usage (`/query`)
 
@@ -79,13 +96,17 @@ through datapack files.
 
 Accessible from the config screen in-game using YACL, or `packdev_toolkit.json` in your config folder
 
-### Export Directory
+### Export Directories
 
-The root folder that assets, recipes, and `/query` results are written to. Can be relative to the game/server directory
-(default `packdev_toolkit_exports`) or an absolute path (e.g. `C:/Users/Name/Downloads`).
+You can configure three separate destination folders for different types of output. These can be relative to the
+game/server directory or absolute paths:
 
-Exports are namespaced as `assets/` (textures, blockstates, models), `data/` (recipes), and `queries/` (`/query`
-results).
+- **Resource Pack Export Directory**: The folder that client assets like textures, blockstates, and models are written
+  to (default: `packdev_toolkit_resource_pack`).
+- **Data Pack Export Directory**: The folder that server data like recipes are written to (default:
+  `packdev_toolkit_data_pack`).
+- **Queries Export Directory**: The folder that `/query` and `/export` list files are written to (default:
+  `packdev_toolkit_queries`).
 
 ### Keybinds
 

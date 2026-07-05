@@ -17,6 +17,7 @@ public class ClientEvents {
     private static void registerKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(ModKeyBindings.EXPORT);
         event.register(ModKeyBindings.COPY_TRANSLATION_KEY);
+        event.register(ModKeyBindings.EXPORT_DESCRIPTION);
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {

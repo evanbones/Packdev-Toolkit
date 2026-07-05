@@ -44,6 +44,9 @@ dependencies {
 
     // YACL
     implementation "maven.modrinth:yacl:${yacl_version}-neoforge"
+
+    // Item Descriptions
+    compileOnly  "maven.modrinth:item-descriptions:${item_descriptions_version}-neoforge"
 }
 
 publishMods {

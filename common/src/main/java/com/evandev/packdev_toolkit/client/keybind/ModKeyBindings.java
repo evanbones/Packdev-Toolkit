@@ -17,4 +17,10 @@ public class ModKeyBindings {
             GLFW.GLFW_KEY_J,
             CATEGORY
     );
+
+    public static final KeyMapping EXPORT_DESCRIPTION = new KeyMapping(
+            "key.packdev_toolkit.export_description",
+            GLFW.GLFW_KEY_Z,
+            CATEGORY
+    );
 }

@@ -4,26 +4,22 @@ import com.evandev.packdev_toolkit.config.ModConfig;
 
 import java.nio.file.Path;
 
-/**
- * Resolves the configured export root (see {@link ModConfig#exportDirectory}) against a
- * given base directory. Callers pass the client game directory or the running server's
- * director.
- */
 public class ExportPaths {
-    public static Path resolveRoot(Path baseDir) {
-        Path configured = Path.of(ModConfig.get().exportDirectory);
-        return configured.isAbsolute() ? configured : baseDir.resolve(configured);
-    }
-
     public static Path assetsRoot(Path baseDir) {
-        return resolveRoot(baseDir).resolve("assets");
+        Path configured = Path.of(ModConfig.get().resourcePackExportDirectory);
+        Path resolved = configured.isAbsolute() ? configured : baseDir.resolve(configured);
+        return resolved.resolve("assets");
     }
 
     public static Path dataRoot(Path baseDir) {
-        return resolveRoot(baseDir).resolve("data");
+        Path configured = Path.of(ModConfig.get().dataPackExportDirectory);
+        Path resolved = configured.isAbsolute() ? configured : baseDir.resolve(configured);
+        return resolved.resolve("data");
     }
 
     public static Path queriesRoot(Path baseDir) {
-        return resolveRoot(baseDir).resolve("queries");
+        Path configured = Path.of(ModConfig.get().queriesExportDirectory);
+        Path resolved = configured.isAbsolute() ? configured : baseDir.resolve(configured);
+        return resolved.resolve("queries");
     }
 }

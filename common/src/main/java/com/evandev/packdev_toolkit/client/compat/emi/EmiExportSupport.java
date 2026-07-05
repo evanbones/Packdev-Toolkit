@@ -5,10 +5,12 @@ import dev.emi.emi.api.EmiApi;
 import dev.emi.emi.api.recipe.EmiRecipe;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStackInteraction;
+import dev.emi.emi.api.stack.TagEmiIngredient;
 import dev.emi.emi.api.widget.Widget;
 import dev.emi.emi.screen.RecipeScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,19 +23,58 @@ public class EmiExportSupport {
         return mc.screen instanceof RecipeScreen;
     }
 
-    public static ItemStack getHoveredStack() {
-        EmiStackInteraction interaction = EmiApi.getHoveredStack(true);
-        if (interaction == null || interaction.isEmpty()) {
-            return ItemStack.EMPTY;
+    public static @Nullable EmiIngredient getEmiHoveredIngredient(Minecraft mc) {
+        if (mc.screen instanceof RecipeScreen recipeScreen) {
+            EmiIngredient stack = recipeScreen.getHoveredStack();
+            if (stack != null && !stack.isEmpty()) {
+                return stack;
+            }
         }
+        EmiStackInteraction interaction = EmiApi.getHoveredStack(true);
+        if (interaction != null && !interaction.isEmpty()) {
+            return interaction.getStack();
+        }
+        return null;
+    }
 
-        EmiIngredient ingredient = interaction.getStack();
-        if (ingredient.isEmpty() || ingredient.getEmiStacks().isEmpty()) {
+    public static ItemStack getHoveredStack(Minecraft mc) {
+        EmiIngredient ingredient = getEmiHoveredIngredient(mc);
+        if (ingredient == null || ingredient.isEmpty() || ingredient.getEmiStacks().isEmpty()) {
             return ItemStack.EMPTY;
         }
 
         ItemStack stack = ingredient.getEmiStacks().getFirst().getItemStack();
         return stack != null ? stack : ItemStack.EMPTY;
+    }
+
+    public static @Nullable Object getHoveredTagKey(Minecraft mc) {
+        EmiIngredient ingredient = getEmiHoveredIngredient(mc);
+        if (ingredient == null || ingredient.isEmpty()) {
+            return null;
+        }
+
+        if (ingredient instanceof TagEmiIngredient tagIngredient) {
+            return tagIngredient.key;
+        }
+
+        return getFieldOfType(ingredient, TagKey.class);
+    }
+
+    private static Object getFieldOfType(Object obj, Class<?> type) {
+        Class<?> current = obj.getClass();
+        while (current != null && current != Object.class) {
+            for (Field f : current.getDeclaredFields()) {
+                if (type.isAssignableFrom(f.getType())) {
+                    try {
+                        f.setAccessible(true);
+                        return f.get(obj);
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

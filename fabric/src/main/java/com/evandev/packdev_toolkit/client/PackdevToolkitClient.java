@@ -11,6 +11,7 @@ public class PackdevToolkitClient implements ClientModInitializer {
     public void onInitializeClient() {
         KeyBindingHelper.registerKeyBinding(ModKeyBindings.EXPORT);
         KeyBindingHelper.registerKeyBinding(ModKeyBindings.COPY_TRANSLATION_KEY);
+        KeyBindingHelper.registerKeyBinding(ModKeyBindings.EXPORT_DESCRIPTION);
 
         ClientTickEvents.END_CLIENT_TICK.register(ClientTickHandler::onClientTick);
     }

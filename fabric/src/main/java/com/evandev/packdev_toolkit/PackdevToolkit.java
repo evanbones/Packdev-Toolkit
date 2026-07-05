@@ -13,7 +13,7 @@ public class PackdevToolkit implements ModInitializer {
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             QueryCommand.register(dispatcher, registryAccess);
-            ExportCommand.register(dispatcher);
+            ExportCommand.register(dispatcher, registryAccess);
         });
     }
 }

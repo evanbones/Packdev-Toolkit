@@ -30,6 +30,6 @@ public class PackdevToolkit {
 
     private void registerCommands(final RegisterCommandsEvent event) {
         QueryCommand.register(event.getDispatcher(), event.getBuildContext());
-        ExportCommand.register(event.getDispatcher());
+        ExportCommand.register(event.getDispatcher(), event.getBuildContext());
     }
 }

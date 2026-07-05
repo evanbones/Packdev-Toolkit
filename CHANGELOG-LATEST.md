@@ -1,7 +1,8 @@
-## Added
+### Added
 
-- Added the ability to automatically export `mcmeta` files if they exist.
+- Added support for exporting Item Descriptions lang entries (Z by default).
+- Added `/export` subcommands for biomes, structures, configured/placed features, tag entries, and registry entries.
 
-### Fixed
+### Changed
 
-- Removed unused config option.
+- Separated datapack, query, and resource pack export directories.
