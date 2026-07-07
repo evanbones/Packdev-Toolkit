@@ -47,6 +47,7 @@ dependencies {
 
     // Item Descriptions
     compileOnly  "maven.modrinth:item-descriptions:${item_descriptions_version}-neoforge"
+    runtimeOnly  "maven.modrinth:item-descriptions:${item_descriptions_version}-neoforge"
 }
 
 publishMods {

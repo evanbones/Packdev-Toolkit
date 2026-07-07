@@ -60,6 +60,13 @@ item/tag in EMI to automatically append its description lang key to your resourc
 
 This automatically merges with your existing `en_us.json` if it exists, without overwriting other entries.
 
+### Browse vanilla/mod resource (`/packdev browse`)
+
+This will open up a screen where you can select files from loaded mods to export to your configured `data` and `assets`
+directories.
+
+![File Browser](https://raw.githubusercontent.com/evanbones/Packdev-Toolkit/refs/heads/1.21.1/images/file_browser.png)
+
 ### Dump item IDs and registries (`/export`)
 
 Grabs item IDs, registries, or tag entries and saves them. Click the chat message to copy to your clipboard or

@@ -1,6 +1,9 @@
 package com.evandev.packdev_toolkit.platform.services;
 
+import com.evandev.packdev_toolkit.platform.ModJarInfo;
+
 import java.nio.file.Path;
+import java.util.List;
 
 public interface IPlatformHelper {
 
@@ -44,7 +47,15 @@ public interface IPlatformHelper {
 
     /**
      * Checks if the code is running on the physical client.
+     *
      * @return True if on the client, false if on a dedicated server.
      */
     boolean isPhysicalClient();
+
+    /**
+     * Gets all loaded mods, their metadata, and their root resource paths.
+     *
+     * @return List of ModJarInfo
+     */
+    List<ModJarInfo> getLoadedMods();
 }
