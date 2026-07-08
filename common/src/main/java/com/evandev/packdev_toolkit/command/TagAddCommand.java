@@ -2,6 +2,7 @@ package com.evandev.packdev_toolkit.command;
 
 import com.evandev.packdev_toolkit.Constants;
 import com.evandev.packdev_toolkit.client.export.ExportPaths;
+import com.evandev.packdev_toolkit.platform.Services;
 import com.google.gson.*;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
@@ -39,10 +40,7 @@ import java.util.Set;
 public class TagAddCommand {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
-    private TagAddCommand() {
-    }
-
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, @SuppressWarnings("unused") CommandBuildContext buildContext) {
         dispatcher.register(Commands.literal("packdev")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("tag")
@@ -52,14 +50,31 @@ public class TagAddCommand {
                                         .then(Commands.argument("tag", ResourceLocationArgument.id())
                                                 .suggests(ExportCommand::suggestTags)
                                                 .then(Commands.literal("hand")
-                                                        .executes(context -> addTag(context, AddSource.HAND)))
+                                                        .executes(context -> modifyTag(context, AddSource.HAND, false)))
                                                 .then(Commands.literal("hotbar")
-                                                        .executes(context -> addTag(context, AddSource.HOTBAR)))
+                                                        .executes(context -> modifyTag(context, AddSource.HOTBAR, false)))
                                                 .then(Commands.literal("inventory")
-                                                        .executes(context -> addTag(context, AddSource.INVENTORY)))
+                                                        .executes(context -> modifyTag(context, AddSource.INVENTORY, false)))
                                                 .then(Commands.argument("entry", ResourceLocationArgument.id())
                                                         .suggests(ExportCommand::suggestRegistryEntries)
-                                                        .executes(context -> addTag(context, AddSource.DIRECT)))
+                                                        .executes(context -> modifyTag(context, AddSource.DIRECT, false)))
+                                        )
+                                )
+                        )
+                        .then(Commands.literal("remove")
+                                .then(Commands.argument("registry", ResourceLocationArgument.id())
+                                        .suggests(ExportCommand::suggestRegistries)
+                                        .then(Commands.argument("tag", ResourceLocationArgument.id())
+                                                .suggests(ExportCommand::suggestTags)
+                                                .then(Commands.literal("hand")
+                                                        .executes(context -> modifyTag(context, AddSource.HAND, true)))
+                                                .then(Commands.literal("hotbar")
+                                                        .executes(context -> modifyTag(context, AddSource.HOTBAR, true)))
+                                                .then(Commands.literal("inventory")
+                                                        .executes(context -> modifyTag(context, AddSource.INVENTORY, true)))
+                                                .then(Commands.argument("entry", ResourceLocationArgument.id())
+                                                        .suggests(ExportCommand::suggestRegistryEntries)
+                                                        .executes(context -> modifyTag(context, AddSource.DIRECT, true)))
                                         )
                                 )
                         )
@@ -67,7 +82,7 @@ public class TagAddCommand {
         );
     }
 
-    private static int addTag(CommandContext<CommandSourceStack> context, AddSource source) {
+    private static int modifyTag(CommandContext<CommandSourceStack> context, AddSource source, boolean isRemove) {
         CommandSourceStack commandSource = context.getSource();
         try {
             ResourceLocation registryId = ResourceLocationArgument.getId(context, "registry");
@@ -77,14 +92,14 @@ public class TagAddCommand {
             Registry<Object> registry = commandSource.registryAccess().registry(registryKey)
                     .orElseThrow(() -> new IllegalArgumentException("Unknown registry: " + registryId));
 
-            List<ResourceLocation> entriesToAdd = new ArrayList<>();
+            List<ResourceLocation> entriesToModify = new ArrayList<>();
             if (source == AddSource.DIRECT) {
                 ResourceLocation entryId = ResourceLocationArgument.getId(context, "entry");
-                if (!registry.containsKey(entryId)) {
+                if (!isRemove && !registry.containsKey(entryId)) {
                     commandSource.sendFailure(Component.literal("Entry " + entryId + " not found in registry " + registryId));
                     return 0;
                 }
-                entriesToAdd.add(entryId);
+                entriesToModify.add(entryId);
             } else {
                 boolean isShortcutSupported = registryId.equals(Registries.ITEM.location())
                         || registryId.equals(Registries.BLOCK.location())
@@ -129,10 +144,10 @@ public class TagAddCommand {
 
                 for (ItemStack stack : itemStacks) {
                     List<ResourceLocation> ids = getIdsFromStack(stack, registryId);
-                    entriesToAdd.addAll(ids);
+                    entriesToModify.addAll(ids);
                 }
 
-                if (entriesToAdd.isEmpty()) {
+                if (entriesToModify.isEmpty()) {
                     commandSource.sendFailure(Component.literal("No matching items/entries found in " + source.name().toLowerCase() + " for registry " + registryId));
                     return 0;
                 }
@@ -149,6 +164,7 @@ public class TagAddCommand {
 
             JsonObject tagJson = new JsonObject();
             JsonArray valuesArray = new JsonArray();
+            JsonArray removeArray = new JsonArray();
 
             if (Files.exists(tagFilePath)) {
                 try (FileReader reader = new FileReader(tagFilePath.toFile())) {
@@ -157,8 +173,9 @@ public class TagAddCommand {
                         tagJson = existingJson;
                         if (tagJson.has("values")) {
                             valuesArray = tagJson.getAsJsonArray("values");
-                        } else {
-                            tagJson.add("values", valuesArray);
+                        }
+                        if (tagJson.has("remove")) {
+                            removeArray = tagJson.getAsJsonArray("remove");
                         }
                     }
                 } catch (Exception e) {
@@ -171,34 +188,131 @@ public class TagAddCommand {
                 tagJson.add("values", valuesArray);
             }
 
-            Set<String> existingIds = new HashSet<>();
-            for (int i = 0; i < valuesArray.size(); i++) {
-                JsonElement el = valuesArray.get(i);
-                if (el.isJsonPrimitive()) {
-                    existingIds.add(el.getAsString());
-                } else if (el.isJsonObject()) {
-                    JsonObject obj = el.getAsJsonObject();
-                    if (obj.has("id")) {
-                        existingIds.add(obj.get("id").getAsString());
+            boolean modified;
+            List<String> modifiedList = new ArrayList<>();
+
+            if (!isRemove) {
+                Set<String> existingIds = new HashSet<>();
+                for (int i = 0; i < valuesArray.size(); i++) {
+                    JsonElement el = valuesArray.get(i);
+                    if (el.isJsonPrimitive()) {
+                        existingIds.add(el.getAsString());
+                    } else if (el.isJsonObject()) {
+                        JsonObject obj = el.getAsJsonObject();
+                        if (obj.has("id")) {
+                            existingIds.add(obj.get("id").getAsString());
+                        }
                     }
                 }
-            }
 
-            int addedCount = 0;
-            List<String> addedList = new ArrayList<>();
-            for (ResourceLocation entry : entriesToAdd) {
-                String entryStr = entry.toString();
-                if (!existingIds.contains(entryStr)) {
-                    valuesArray.add(entryStr);
-                    existingIds.add(entryStr);
-                    addedList.add(entryStr);
-                    addedCount++;
+                int addedCount = 0;
+                for (ResourceLocation entry : entriesToModify) {
+                    String entryStr = entry.toString();
+                    if (!existingIds.contains(entryStr)) {
+                        valuesArray.add(entryStr);
+                        existingIds.add(entryStr);
+                        modifiedList.add(entryStr);
+                        addedCount++;
+                    }
                 }
-            }
+                modified = addedCount > 0;
 
-            if (addedCount == 0) {
-                commandSource.sendSuccess(() -> Component.literal("All entries already present in tag " + tagId).withStyle(ChatFormatting.YELLOW), false);
-                return 0;
+                if (!modified) {
+                    commandSource.sendSuccess(() -> Component.literal("All entries already present in tag " + tagId).withStyle(ChatFormatting.YELLOW), false);
+                    return 0;
+                }
+            } else {
+                boolean isNeoForge = Services.PLATFORM.getPlatformName().equals("NeoForge");
+
+                JsonArray newValuesArray = new JsonArray();
+                int removedFromValuesCount = 0;
+                for (int i = 0; i < valuesArray.size(); i++) {
+                    JsonElement el = valuesArray.get(i);
+                    String valStr = null;
+                    if (el.isJsonPrimitive()) {
+                        valStr = el.getAsString();
+                    } else if (el.isJsonObject()) {
+                        JsonObject obj = el.getAsJsonObject();
+                        if (obj.has("id")) {
+                            valStr = obj.get("id").getAsString();
+                        }
+                    }
+
+                    if (shouldRemove(valStr, entriesToModify)) {
+                        removedFromValuesCount++;
+                    } else {
+                        newValuesArray.add(el);
+                    }
+                }
+                tagJson.add("values", newValuesArray);
+
+                int addedToRemoveCount = 0;
+                if (isNeoForge) {
+                    if (!tagJson.has("remove")) {
+                        tagJson.add("remove", removeArray);
+                    }
+
+                    Set<String> existingRemoveIds = new HashSet<>();
+                    for (int i = 0; i < removeArray.size(); i++) {
+                        JsonElement el = removeArray.get(i);
+                        if (el.isJsonPrimitive()) {
+                            existingRemoveIds.add(el.getAsString());
+                        }
+                    }
+
+                    for (ResourceLocation entry : entriesToModify) {
+                        String entryStr = entry.toString();
+                        if (!existingRemoveIds.contains(entryStr)) {
+                            removeArray.add(entryStr);
+                            existingRemoveIds.add(entryStr);
+                            addedToRemoveCount++;
+                            modifiedList.add(entryStr);
+                        }
+                    }
+                } else {
+                    for (ResourceLocation entry : entriesToModify) {
+                        modifiedList.add(entry.toString());
+                    }
+                }
+
+                modified = (removedFromValuesCount > 0) || (addedToRemoveCount > 0);
+
+                if (!modified) {
+                    if (isNeoForge) {
+                        commandSource.sendSuccess(() -> Component.literal("All entries already removed or in 'remove' block for tag " + tagId).withStyle(ChatFormatting.YELLOW), false);
+                    } else {
+                        commandSource.sendSuccess(() -> Component.literal("None of the specified entries were found in tag file " + tagId).withStyle(ChatFormatting.YELLOW), false);
+                    }
+                    return 0;
+                }
+
+                try (FileWriter writer = new FileWriter(tagFilePath.toFile())) {
+                    GSON.toJson(tagJson, writer);
+                } catch (IOException e) {
+                    commandSource.sendFailure(Component.literal("Failed to write to file: " + e.getMessage()));
+                    Constants.LOG.error("Failed to write tag file {}", tagFilePath, e);
+                    return 0;
+                }
+
+                StringBuilder feedback = new StringBuilder();
+                if (isNeoForge) {
+                    feedback.append("Removed ").append(modifiedList.size()).append(" entries (").append(String.join(", ", modifiedList)).append(") from tag ").append(tagId);
+                    if (removedFromValuesCount > 0) {
+                        feedback.append(" (").append(removedFromValuesCount).append(" removed from values)");
+                    }
+                    if (addedToRemoveCount > 0) {
+                        feedback.append(" (").append(addedToRemoveCount).append(" added to 'remove' block)");
+                    }
+                } else {
+                    feedback.append("Removed ").append(removedFromValuesCount).append(" entries (").append(String.join(", ", modifiedList)).append(") from tag ").append(tagId).append(" values");
+                }
+
+                Component message = Component.literal(feedback.toString())
+                        .withStyle(ChatFormatting.GREEN)
+                        .withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, tagFilePath.toString())));
+
+                commandSource.sendSuccess(() -> message, true);
+                return removedFromValuesCount + addedToRemoveCount;
             }
 
             try (FileWriter writer = new FileWriter(tagFilePath.toFile())) {
@@ -209,55 +323,52 @@ public class TagAddCommand {
                 return 0;
             }
 
-            Component message = Component.literal("Added " + addedCount + " entries (" + String.join(", ", addedList) + ") to tag " + tagId + " at: " + tagFilePath)
+            Component message = Component.literal("Added " + modifiedList.size() + " entries (" + String.join(", ", modifiedList) + ") to tag " + tagId + " at: " + tagFilePath)
                     .withStyle(ChatFormatting.GREEN)
                     .withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, tagFilePath.toString())));
 
             commandSource.sendSuccess(() -> message, true);
-            return addedCount;
+            return modifiedList.size();
+
         } catch (Exception e) {
-            commandSource.sendFailure(Component.literal("Failed to add to tag: " + e.getMessage()));
-            Constants.LOG.error("Failed to add tag", e);
+            commandSource.sendFailure(Component.literal("Failed to modify tag: " + e.getMessage()));
+            Constants.LOG.error("Failed to modify tag", e);
             return 0;
         }
+    }
+
+    private static boolean shouldRemove(String valStr, List<ResourceLocation> entriesToRemove) {
+        if (valStr == null) {
+            return false;
+        }
+        for (ResourceLocation entry : entriesToRemove) {
+            if (entry.toString().equals(valStr)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String getRegistryTagFolder(ResourceKey<? extends Registry<?>> registryKey) {
         ResourceLocation loc = registryKey.location();
         String path = loc.getPath();
-        switch (path) {
-            case "item" -> {
-                return "tags/items";
+        return switch (path) {
+            case "item" -> "tags/items";
+            case "block" -> "tags/blocks";
+            case "entity_type" -> "tags/entity_types";
+            case "fluid" -> "tags/fluids";
+            case "game_event" -> "tags/game_events";
+            case "biome" -> "tags/worldgen/biome";
+            case "structure" -> "tags/worldgen/structure";
+            case "configured_feature" -> "tags/worldgen/configured_feature";
+            case "placed_feature" -> "tags/worldgen/placed_feature";
+            default -> {
+                if (path.startsWith("worldgen/")) {
+                    yield "tags/" + path;
+                }
+                yield "tags/" + path + "s";
             }
-            case "block" -> {
-                return "tags/blocks";
-            }
-            case "entity_type" -> {
-                return "tags/entity_types";
-            }
-            case "fluid" -> {
-                return "tags/fluids";
-            }
-            case "game_event" -> {
-                return "tags/game_events";
-            }
-            case "biome" -> {
-                return "tags/worldgen/biome";
-            }
-            case "structure" -> {
-                return "tags/worldgen/structure";
-            }
-            case "configured_feature" -> {
-                return "tags/worldgen/configured_feature";
-            }
-            case "placed_feature" -> {
-                return "tags/worldgen/placed_feature";
-            }
-        }
-        if (path.startsWith("worldgen/")) {
-            return "tags/" + path;
-        }
-        return "tags/" + path + "s";
+        };
     }
 
     private static List<ResourceLocation> getIdsFromStack(ItemStack stack, ResourceLocation registryId) {
