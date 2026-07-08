@@ -1,6 +1,6 @@
 ### Added
 
-- Added `/packdev tag add` command to quickly add items/entities/blocks to tags in-game.
+- Added `/packdev tag add` and `tag remove` command to quickly add items/entities/blocks to tags in-game.
 
 ### Changed
 
