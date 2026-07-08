@@ -4,6 +4,7 @@ import com.evandev.packdev_toolkit.client.ClientConfigSetup;
 import com.evandev.packdev_toolkit.client.ClientEvents;
 import com.evandev.packdev_toolkit.command.ExportCommand;
 import com.evandev.packdev_toolkit.command.QueryCommand;
+import com.evandev.packdev_toolkit.command.TagAddCommand;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -31,5 +32,6 @@ public class PackdevToolkit {
     private void registerCommands(final RegisterCommandsEvent event) {
         QueryCommand.register(event.getDispatcher(), event.getBuildContext());
         ExportCommand.register(event.getDispatcher(), event.getBuildContext());
+        TagAddCommand.register(event.getDispatcher(), event.getBuildContext());
     }
 }

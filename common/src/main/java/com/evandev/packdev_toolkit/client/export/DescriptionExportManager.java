@@ -101,20 +101,22 @@ public class DescriptionExportManager {
             if (hit != null) {
                 if (hit.getType() == HitResult.Type.ENTITY && hit instanceof EntityHitResult entityHit) {
                     Entity entity = entityHit.getEntity();
-                    if (Services.PLATFORM.isModLoaded("item_descriptions")) {
-                        String key = ItemDescriptionsBridge.getEntityKey(entity);
-                        return new ResolvedKey(key, "item_descriptions");
-                    }
                     EntityType<?> type = entity.getType();
                     ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+                    if (Services.PLATFORM.isModLoaded("item_descriptions")) {
+                        String key = ItemDescriptionsBridge.getEntityKey(entity);
+                        String targetNamespace = id.getNamespace().equals("minecraft") ? "item_descriptions" : id.getNamespace();
+                        return new ResolvedKey(key, targetNamespace);
+                    }
                     return new ResolvedKey("entity." + id.getNamespace() + "." + id.getPath() + ".description", id.getNamespace());
                 } else if (hit.getType() == HitResult.Type.BLOCK && hit instanceof BlockHitResult blockHit) {
+                    ResourceLocation id = BuiltInRegistries.BLOCK.getKey(mc.level.getBlockState(blockHit.getBlockPos()).getBlock());
                     if (Services.PLATFORM.isModLoaded("item_descriptions")) {
                         ItemStack blockStack = new ItemStack(mc.level.getBlockState(blockHit.getBlockPos()).getBlock().asItem());
                         String key = ItemDescriptionsBridge.getItemKey(blockStack);
-                        return new ResolvedKey(key, "item_descriptions");
+                        String targetNamespace = id.getNamespace().equals("minecraft") ? "item_descriptions" : id.getNamespace();
+                        return new ResolvedKey(key, targetNamespace);
                     }
-                    ResourceLocation id = BuiltInRegistries.BLOCK.getKey(mc.level.getBlockState(blockHit.getBlockPos()).getBlock());
                     return new ResolvedKey("lore." + id.getNamespace() + "." + id.getPath(), id.getNamespace());
                 }
             }
@@ -133,18 +135,20 @@ public class DescriptionExportManager {
     private static ResolvedKey resolveItemKey(ItemStack stack) {
         if (stack.getItem() instanceof SpawnEggItem spawnEgg) {
             EntityType<?> entityType = spawnEgg.getType(stack);
+            ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(entityType);
             if (Services.PLATFORM.isModLoaded("item_descriptions")) {
                 String key = ItemDescriptionsBridge.getEntityTypeKey(entityType);
-                return new ResolvedKey(key, "item_descriptions");
+                String targetNamespace = id.getNamespace().equals("minecraft") ? "item_descriptions" : id.getNamespace();
+                return new ResolvedKey(key, targetNamespace);
             }
-            ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(entityType);
             return new ResolvedKey("entity." + id.getNamespace() + "." + id.getPath() + ".description", id.getNamespace());
         }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (Services.PLATFORM.isModLoaded("item_descriptions")) {
             String key = ItemDescriptionsBridge.getItemKey(stack);
-            return new ResolvedKey(key, "item_descriptions");
+            String targetNamespace = id.getNamespace().equals("minecraft") ? "item_descriptions" : id.getNamespace();
+            return new ResolvedKey(key, targetNamespace);
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         return new ResolvedKey("lore." + id.getNamespace() + "." + id.getPath(), id.getNamespace());
     }
 
@@ -154,7 +158,8 @@ public class DescriptionExportManager {
             ResourceLocation location = tagKey.location();
             String tagDescription = "tag." + location.getNamespace() + "." + location.getPath() + ".description";
             if (Services.PLATFORM.isModLoaded("item_descriptions")) {
-                return new ResolvedKey(tagDescription, "item_descriptions");
+                String targetNamespace = location.getNamespace().equals("minecraft") ? "item_descriptions" : location.getNamespace();
+                return new ResolvedKey(tagDescription, targetNamespace);
             }
             return new ResolvedKey(tagDescription, location.getNamespace());
         }

@@ -155,7 +155,7 @@ public class ExportCommand {
         }
     }
 
-    private static CompletableFuture<Suggestions> suggestRegistries(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+    static CompletableFuture<Suggestions> suggestRegistries(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         return SharedSuggestionProvider.suggestResource(
                 context.getSource().registryAccess().registries()
                         .map(entry -> entry.key().location())
@@ -164,7 +164,7 @@ public class ExportCommand {
         );
     }
 
-    private static CompletableFuture<Suggestions> suggestTags(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+    static CompletableFuture<Suggestions> suggestTags(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         try {
             ResourceLocation registryId = ResourceLocationArgument.getId(context, "registry");
             ResourceKey<? extends Registry<Object>> registryKey = ResourceKey.createRegistryKey(registryId);
@@ -182,7 +182,7 @@ public class ExportCommand {
         return Suggestions.empty();
     }
 
-    private static CompletableFuture<Suggestions> suggestRegistryEntries(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+    static CompletableFuture<Suggestions> suggestRegistryEntries(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
         try {
             ResourceLocation registryId = ResourceLocationArgument.getId(context, "registry");
             ResourceKey<? extends Registry<Object>> registryKey = ResourceKey.createRegistryKey(registryId);

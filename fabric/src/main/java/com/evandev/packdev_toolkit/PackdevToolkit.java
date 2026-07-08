@@ -2,6 +2,7 @@ package com.evandev.packdev_toolkit;
 
 import com.evandev.packdev_toolkit.command.ExportCommand;
 import com.evandev.packdev_toolkit.command.QueryCommand;
+import com.evandev.packdev_toolkit.command.TagAddCommand;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -14,6 +15,7 @@ public class PackdevToolkit implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             QueryCommand.register(dispatcher, registryAccess);
             ExportCommand.register(dispatcher, registryAccess);
+            TagAddCommand.register(dispatcher, registryAccess);
         });
     }
 }
