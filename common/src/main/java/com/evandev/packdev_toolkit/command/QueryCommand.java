@@ -61,7 +61,7 @@ public class QueryCommand {
         Holder.Reference<Item> itemHolder = ResourceArgument.getResource(context, "item", Registries.ITEM);
         ResourceLocation itemId = itemHolder.key().location();
 
-        JsonArray matches = searchInJsonResources(source, itemId.toString(), "loot_table", "loot_modifiers");
+        JsonArray matches = searchInJsonResources(source, itemId.toString(), "loot_table", "loot_tables", "loot_modifiers");
         return writeResult(source, "loot_containing_" + itemId.getPath() + ".json", matches);
     }
 
@@ -83,7 +83,8 @@ public class QueryCommand {
         JsonArray matches = new JsonArray();
         ResourceManager manager = source.getServer().getResourceManager();
 
-        Map<ResourceLocation, Resource> structures = manager.listResources("structures", path -> path.getPath().endsWith(".nbt"));
+        Map<ResourceLocation, Resource> structures = new java.util.HashMap<>(manager.listResources("structure", path -> path.getPath().endsWith(".nbt")));
+        structures.putAll(manager.listResources("structures", path -> path.getPath().endsWith(".nbt")));
 
         for (Map.Entry<ResourceLocation, Resource> entry : structures.entrySet()) {
             try (InputStream is = entry.getValue().open()) {
@@ -95,7 +96,8 @@ public class QueryCommand {
                         CompoundTag blockState = palette.getCompound(i);
                         if (blockState.contains("Name", Tag.TAG_STRING) && blockState.getString("Name").equals(targetBlockStr)) {
                             String path = entry.getKey().getPath();
-                            if (path.startsWith("structures/")) path = path.substring(11);
+                            if (path.startsWith("structure/")) path = path.substring(10);
+                            else if (path.startsWith("structures/")) path = path.substring(11);
                             if (path.endsWith(".nbt")) path = path.substring(0, path.length() - 4);
 
                             matches.add(entry.getKey().getNamespace() + ":" + path);

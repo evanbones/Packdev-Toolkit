@@ -350,25 +350,7 @@ public class TagAddCommand {
     }
 
     private static String getRegistryTagFolder(ResourceKey<? extends Registry<?>> registryKey) {
-        ResourceLocation loc = registryKey.location();
-        String path = loc.getPath();
-        return switch (path) {
-            case "item" -> "tags/items";
-            case "block" -> "tags/blocks";
-            case "entity_type" -> "tags/entity_types";
-            case "fluid" -> "tags/fluids";
-            case "game_event" -> "tags/game_events";
-            case "biome" -> "tags/worldgen/biome";
-            case "structure" -> "tags/worldgen/structure";
-            case "configured_feature" -> "tags/worldgen/configured_feature";
-            case "placed_feature" -> "tags/worldgen/placed_feature";
-            default -> {
-                if (path.startsWith("worldgen/")) {
-                    yield "tags/" + path;
-                }
-                yield "tags/" + path + "s";
-            }
-        };
+        return "tags/" + registryKey.location().getPath();
     }
 
     private static List<ResourceLocation> getIdsFromStack(ItemStack stack, ResourceLocation registryId) {
