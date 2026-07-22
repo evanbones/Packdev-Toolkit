@@ -43,6 +43,8 @@ publishMods {
         accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
         projectId = "1596440"
         minecraftVersions.add("${minecraft_version}")
+        client = true
+        server = true
 
         requires("yacl")
         optional("item-descriptions")
