@@ -159,8 +159,10 @@ public class TagAddCommand {
             String tagDir = getRegistryTagFolder(registryKey);
 
             Path tagFileDir = dataRoot.resolve(tagNamespace).resolve(tagDir);
-            Files.createDirectories(tagFileDir);
             Path tagFilePath = tagFileDir.resolve(tagPath + ".json");
+            if (tagFilePath.getParent() != null) {
+                Files.createDirectories(tagFilePath.getParent());
+            }
 
             JsonObject tagJson = new JsonObject();
             JsonArray valuesArray = new JsonArray();

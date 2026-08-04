@@ -241,6 +241,9 @@ public class ExportCommand {
         try {
             Files.createDirectories(exportDir);
             Path filePath = exportDir.resolve(filename);
+            if (filePath.getParent() != null) {
+                Files.createDirectories(filePath.getParent());
+            }
             Files.writeString(filePath, GSON.toJson(array));
 
             Component message = Component.literal("Exported " + entries.size() + " entries to: " + filePath)

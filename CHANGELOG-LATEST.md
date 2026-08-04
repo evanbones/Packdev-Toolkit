@@ -1,3 +1,3 @@
 ### Fixed
 
-- Fixed tag additions.
+- Fixed exporting tags with a slash.

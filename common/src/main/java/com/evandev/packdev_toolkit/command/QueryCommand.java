@@ -148,6 +148,9 @@ public class QueryCommand {
         try {
             Files.createDirectories(exportDir);
             Path filePath = exportDir.resolve(filename);
+            if (filePath.getParent() != null) {
+                Files.createDirectories(filePath.getParent());
+            }
             Files.writeString(filePath, GSON.toJson(matches));
 
             Component message = Component.literal("Found " + matches.size() + " matches! Exported to: " + filePath)
