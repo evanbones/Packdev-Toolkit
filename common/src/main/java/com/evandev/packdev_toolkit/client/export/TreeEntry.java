@@ -29,6 +29,12 @@ class TreeEntry extends ObjectSelectionList.Entry<TreeEntry> {
         return Component.literal(node.name);
     }
 
+    int getContentWidth() {
+        int indent = isSearching ? 0 : node.depth * 12;
+        String label = node.isDirectory ? node.name + "/" : (isSearching ? node.relativePath : node.name);
+        return indent + 34 + screen.getFont().width(label);
+    }
+
     @Override
     public void render(@NotNull GuiGraphics guiGraphics, int index, int top, int left, int width, int height, int mouseX, int mouseY, boolean isHovered, float partialTick) {
         boolean isSelected = false;
@@ -49,13 +55,13 @@ class TreeEntry extends ObjectSelectionList.Entry<TreeEntry> {
             }
         }
 
-        int startX = left + 2;
+        int startX = left + 2 - widget.getScrollX();
         int indent = isSearching ? 0 : node.depth * 12;
         int cbX = startX + indent;
         int cbY = top + (height - 12) / 2;
 
         if (!isSearching) {
-            screen.renderTreeGuides(guiGraphics, node, startX, top);
+            screen.renderTreeGuides(guiGraphics, node, left + 2 - widget.getScrollX(), top);
         }
 
         int borderCol = 0xFFA0A0A0;
@@ -123,7 +129,7 @@ class TreeEntry extends ObjectSelectionList.Entry<TreeEntry> {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int left = widget.getRowLeft();
-        int startX = left + 2;
+        int startX = left + 2 - widget.getScrollX();
         int indent = isSearching ? 0 : node.depth * 12;
         int cbX = startX + indent;
 

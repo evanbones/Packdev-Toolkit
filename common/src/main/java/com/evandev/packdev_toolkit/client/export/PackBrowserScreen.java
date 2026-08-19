@@ -433,7 +433,7 @@ public class PackBrowserScreen extends Screen {
             return;
         }
 
-        Set<Path> directoriesToOpen = new HashSet<>();
+        boolean anyExported = false;
 
         for (String rel : selectedPaths) {
             Path targetFile = resolveExportPath(rel);
@@ -445,7 +445,7 @@ public class PackBrowserScreen extends Screen {
                         try (InputStream in = Files.newInputStream(srcPath)) {
                             Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
                         }
-                        directoriesToOpen.add(targetFile.getParent());
+                        anyExported = true;
                     }
                 } catch (Exception e) {
                     Constants.LOG.error("Failed to export resource {}", rel, e);
@@ -460,8 +460,9 @@ public class PackBrowserScreen extends Screen {
             );
         }
 
-        for (Path dir : directoriesToOpen) {
-            Util.getPlatform().openUri(dir.toUri());
+        if (anyExported) {
+            Path exportRoot = ExportPaths.assetsRoot(this.minecraft.gameDirectory.toPath()).getParent();
+            Util.getPlatform().openUri(exportRoot.toUri());
         }
 
         this.onClose();

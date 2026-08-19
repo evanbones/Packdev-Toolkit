@@ -15,7 +15,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -75,19 +74,20 @@ public class ExportSelectionScreen extends Screen {
     }
 
     private void extractSelected() {
-        Set<Path> directoriesToOpen = new HashSet<>();
+        boolean anyExported = false;
 
         for (Map.Entry<Checkbox, ResourceLocation> entry : checkboxes.entrySet()) {
             if (entry.getKey().selected()) {
                 Path targetDir = copyAsset(entry.getValue());
                 if (targetDir != null) {
-                    directoriesToOpen.add(targetDir);
+                    anyExported = true;
                 }
             }
         }
 
-        for (Path dir : directoriesToOpen) {
-            Util.getPlatform().openUri(dir.toUri());
+        if (anyExported) {
+            Path exportRoot = ExportPaths.assetsRoot(Minecraft.getInstance().gameDirectory.toPath()).getParent();
+            Util.getPlatform().openUri(exportRoot.toUri());
         }
 
         this.onClose();
