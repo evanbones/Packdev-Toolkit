@@ -1,7 +1,3 @@
-### Changed
+### Added
 
-- You can now scroll horizontally in the filetree.
-
-### Fixed
-
-- Exports now only open the parent folder automatically (fixes spam on large exports).
+- Added an option to disable opening the file browser after an export.

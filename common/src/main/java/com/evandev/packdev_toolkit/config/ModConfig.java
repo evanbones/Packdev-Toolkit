@@ -25,12 +25,10 @@ public class ModConfig {
     private static final File CONFIG_FILE = Services.PLATFORM.getConfigDirectory().resolve(Constants.MOD_ID + ".json").toFile();
     private static ModConfig INSTANCE;
 
-    @Deprecated
-    public String exportDirectory = null;
-
     public String resourcePackExportDirectory = "packdev_toolkit_resource_pack";
     public String dataPackExportDirectory = "packdev_toolkit_data_pack";
     public String queriesExportDirectory = "packdev_toolkit_queries";
+    public boolean openFolderOnExport = true;
 
     public static ModConfig get() {
         if (INSTANCE == null) {
@@ -43,21 +41,27 @@ public class ModConfig {
         if (CONFIG_FILE.exists()) {
             try (FileReader reader = new FileReader(CONFIG_FILE)) {
                 INSTANCE = GSON.fromJson(reader, ModConfig.class);
-                if (INSTANCE != null && INSTANCE.exportDirectory != null) {
-                    INSTANCE.resourcePackExportDirectory = INSTANCE.exportDirectory;
-                    INSTANCE.dataPackExportDirectory = INSTANCE.exportDirectory;
-                    INSTANCE.queriesExportDirectory = INSTANCE.exportDirectory;
-                    INSTANCE.exportDirectory = null;
-                    save();
-                }
             } catch (Exception e) {
                 Constants.LOG.error("Failed to load " + Constants.MOD_ID + ".json", e);
-                INSTANCE = new ModConfig();
-                save();
             }
-        } else {
+        }
+        if (INSTANCE == null) {
             INSTANCE = new ModConfig();
             save();
+        } else {
+            INSTANCE.validate();
+        }
+    }
+
+    private void validate() {
+        if (resourcePackExportDirectory == null || resourcePackExportDirectory.isBlank()) {
+            resourcePackExportDirectory = "packdev_toolkit_resource_pack";
+        }
+        if (dataPackExportDirectory == null || dataPackExportDirectory.isBlank()) {
+            dataPackExportDirectory = "packdev_toolkit_data_pack";
+        }
+        if (queriesExportDirectory == null || queriesExportDirectory.isBlank()) {
+            queriesExportDirectory = "packdev_toolkit_queries";
         }
     }
 
@@ -78,7 +82,8 @@ public class ModConfig {
                 .name(Component.translatable("config.packdev_toolkit.category.general"))
                 .option(createStringOption("resource_pack_export_directory", "packdev_toolkit_resource_pack", () -> get().resourcePackExportDirectory, val -> get().resourcePackExportDirectory = val))
                 .option(createStringOption("data_pack_export_directory", "packdev_toolkit_data_pack", () -> get().dataPackExportDirectory, val -> get().dataPackExportDirectory = val))
-                .option(createStringOption("queries_export_directory", "packdev_toolkit_queries", () -> get().queriesExportDirectory, val -> get().queriesExportDirectory = val));
+                .option(createStringOption("queries_export_directory", "packdev_toolkit_queries", () -> get().queriesExportDirectory, val -> get().queriesExportDirectory = val))
+                .option(createBoolOption("open_folder_on_export", true, () -> get().openFolderOnExport, val -> get().openFolderOnExport = val));
 
         return builder.category(general.build()).build().generateScreen(parent);
     }
@@ -86,6 +91,7 @@ public class ModConfig {
     private static Option<Boolean> createBoolOption(String name, boolean defaultValue, Supplier<Boolean> getter, Consumer<Boolean> setter) {
         return Option.<Boolean>createBuilder()
                 .name(Component.translatable("config.packdev_toolkit.option." + name))
+                .description(OptionDescription.of(Component.translatable("config.packdev_toolkit.option." + name + ".desc")))
                 .binding(defaultValue, getter, setter)
                 .controller(TickBoxControllerBuilder::create)
                 .build();

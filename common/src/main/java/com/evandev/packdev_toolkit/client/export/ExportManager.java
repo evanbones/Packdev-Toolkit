@@ -2,6 +2,7 @@ package com.evandev.packdev_toolkit.client.export;
 
 import com.evandev.packdev_toolkit.Constants;
 import com.evandev.packdev_toolkit.client.compat.emi.EmiExportSupport;
+import com.evandev.packdev_toolkit.config.ModConfig;
 import com.evandev.packdev_toolkit.platform.Services;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -187,7 +188,9 @@ public class ExportManager {
             Files.writeString(recipeFile, jsonStr);
 
             sendMessage(mc, "Exported recipe to: " + recipeFile);
-            Util.getPlatform().openUri(recipeFile.getParent().toUri());
+            if (ModConfig.get().openFolderOnExport) {
+                Util.getPlatform().openUri(recipeFile.getParent().toUri());
+            }
         } catch (Exception e) {
             Constants.LOG.error("Failed to serialize or save recipe for export", e);
             sendMessage(mc, "Export Failed: " + e.getMessage());

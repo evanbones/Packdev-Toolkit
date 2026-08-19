@@ -1,6 +1,7 @@
 package com.evandev.packdev_toolkit.client.export;
 
 import com.evandev.packdev_toolkit.Constants;
+import com.evandev.packdev_toolkit.config.ModConfig;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -85,7 +86,7 @@ public class ExportSelectionScreen extends Screen {
             }
         }
 
-        if (anyExported) {
+        if (anyExported && ModConfig.get().openFolderOnExport) {
             Path exportRoot = ExportPaths.assetsRoot(Minecraft.getInstance().gameDirectory.toPath()).getParent();
             Util.getPlatform().openUri(exportRoot.toUri());
         }

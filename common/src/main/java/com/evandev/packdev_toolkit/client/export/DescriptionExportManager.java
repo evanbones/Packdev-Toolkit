@@ -2,6 +2,7 @@ package com.evandev.packdev_toolkit.client.export;
 
 import com.evandev.packdev_toolkit.Constants;
 import com.evandev.packdev_toolkit.client.compat.emi.EmiExportSupport;
+import com.evandev.packdev_toolkit.config.ModConfig;
 import com.evandev.packdev_toolkit.platform.Services;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -81,7 +82,9 @@ public class DescriptionExportManager {
             }
 
             sendMessage(mc, "Exported description key to en_us.json: " + key);
-            Util.getPlatform().openUri(langFile.getParent().toUri());
+            if (ModConfig.get().openFolderOnExport) {
+                Util.getPlatform().openUri(langFile.getParent().toUri());
+            }
         } catch (Exception e) {
             Constants.LOG.error("Failed to export description key", e);
             sendMessage(mc, "Export Failed: " + e.getMessage());

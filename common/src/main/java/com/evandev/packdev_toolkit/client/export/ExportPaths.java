@@ -19,7 +19,6 @@ public class ExportPaths {
 
     public static Path queriesRoot(Path baseDir) {
         Path configured = Path.of(ModConfig.get().queriesExportDirectory);
-        Path resolved = configured.isAbsolute() ? configured : baseDir.resolve(configured);
-        return resolved.resolve("queries");
+        return configured.isAbsolute() ? configured : baseDir.resolve(configured);
     }
 }

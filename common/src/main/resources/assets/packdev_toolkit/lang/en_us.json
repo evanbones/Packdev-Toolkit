@@ -7,6 +7,8 @@
   "config.packdev_toolkit.option.data_pack_export_directory.desc": "The directory that recipe and data exports are written to. Can be relative to the game directory or an absolute path (e.g. C:/Minecraft/config/openloader/data/MyDatapack).",
   "config.packdev_toolkit.option.queries_export_directory": "Queries Export Directory",
   "config.packdev_toolkit.option.queries_export_directory.desc": "The directory that query dumps are written to. Can be relative to the game directory or an absolute path (e.g. C:/Minecraft/queries).",
+  "config.packdev_toolkit.option.open_folder_on_export": "Open Folder on Export",
+  "config.packdev_toolkit.option.open_folder_on_export.desc": "Whether to automatically open the export folder in your file manager (File Explorer/Finder) after extracting or exporting files.",
   "key.categories.packdev_toolkit": "Packdev Toolkit",
   "key.packdev_toolkit.export": "Export Hovered Asset/Recipe",
   "key.packdev_toolkit.copy_translation_key": "Copy Translation Key",

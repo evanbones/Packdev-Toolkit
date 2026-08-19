@@ -1,6 +1,7 @@
 package com.evandev.packdev_toolkit.client.export;
 
 import com.evandev.packdev_toolkit.Constants;
+import com.evandev.packdev_toolkit.config.ModConfig;
 import com.evandev.packdev_toolkit.platform.ModJarInfo;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
@@ -433,7 +434,8 @@ public class PackBrowserScreen extends Screen {
             return;
         }
 
-        boolean anyExported = false;
+        boolean exportedAssets = false;
+        boolean exportedData = false;
 
         for (String rel : selectedPaths) {
             Path targetFile = resolveExportPath(rel);
@@ -445,7 +447,11 @@ public class PackBrowserScreen extends Screen {
                         try (InputStream in = Files.newInputStream(srcPath)) {
                             Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
                         }
-                        anyExported = true;
+                        if (rel.startsWith("assets/")) {
+                            exportedAssets = true;
+                        } else if (rel.startsWith("data/")) {
+                            exportedData = true;
+                        }
                     }
                 } catch (Exception e) {
                     Constants.LOG.error("Failed to export resource {}", rel, e);
@@ -460,9 +466,15 @@ public class PackBrowserScreen extends Screen {
             );
         }
 
-        if (anyExported) {
-            Path exportRoot = ExportPaths.assetsRoot(this.minecraft.gameDirectory.toPath()).getParent();
-            Util.getPlatform().openUri(exportRoot.toUri());
+        if (ModConfig.get().openFolderOnExport) {
+            if (exportedAssets) {
+                Path exportRoot = ExportPaths.assetsRoot(this.minecraft.gameDirectory.toPath()).getParent();
+                Util.getPlatform().openUri(exportRoot.toUri());
+            }
+            if (exportedData) {
+                Path exportRoot = ExportPaths.dataRoot(this.minecraft.gameDirectory.toPath()).getParent();
+                Util.getPlatform().openUri(exportRoot.toUri());
+            }
         }
 
         this.onClose();
