@@ -16,13 +16,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Lets the player pick which of a set of resources (textures, blockstates, models) to copy
- * out of the resource manager into the configured export directory.
- */
 public class ExportSelectionScreen extends Screen {
     private final Set<ResourceLocation> availableAssets;
     private final Map<Checkbox, ResourceLocation> checkboxes = new HashMap<>();
@@ -75,20 +72,20 @@ public class ExportSelectionScreen extends Screen {
     }
 
     private void extractSelected() {
-        boolean anyExported = false;
+        Set<Path> exportedDirs = new HashSet<>();
 
         for (Map.Entry<Checkbox, ResourceLocation> entry : checkboxes.entrySet()) {
             if (entry.getKey().selected()) {
                 Path targetDir = copyAsset(entry.getValue());
                 if (targetDir != null) {
-                    anyExported = true;
+                    exportedDirs.add(targetDir);
                 }
             }
         }
 
-        if (anyExported && ModConfig.get().openFolderOnExport) {
+        if (!exportedDirs.isEmpty() && ModConfig.get().openFolderOnExport) {
             Path exportRoot = ExportPaths.assetsRoot(Minecraft.getInstance().gameDirectory.toPath()).getParent();
-            Util.getPlatform().openUri(exportRoot.toUri());
+            Util.getPlatform().openUri(ExportPaths.folderToOpen(exportedDirs, exportRoot).toUri());
         }
 
         this.onClose();

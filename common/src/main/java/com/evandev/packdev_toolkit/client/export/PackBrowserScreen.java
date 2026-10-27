@@ -173,21 +173,23 @@ public class PackBrowserScreen extends Screen {
         this.jsonEditorBox = new MultiLineEditBox(this.font, 190, 102, this.width - 200, this.height - 152, Component.literal("Select a file to edit"), Component.literal("JSON Editor"));
         this.addRenderableWidget(this.jsonEditorBox);
 
-        this.renameBox = new EditBox(this.font, 250, 82, 110, 16, Component.literal("New Name"));
+        int saveX = this.width - 55;
+        int renameX = saveX - 55;
+        this.renameBox = new EditBox(this.font, 250, 82, renameX - 255, 16, Component.literal("New Name"));
         this.addRenderableWidget(this.renameBox);
 
         this.saveRenameBtn = Button.builder(Component.literal("Rename"), btn -> saveRename())
-                .bounds(365, 82, 50, 16)
+                .bounds(renameX, 82, 50, 16)
                 .build();
         this.addRenderableWidget(this.saveRenameBtn);
 
         this.saveEditBtn = Button.builder(Component.literal("Save"), btn -> saveEdit())
-                .bounds(420, 82, 40, 16)
+                .bounds(saveX, 82, 40, 16)
                 .build();
         this.addRenderableWidget(this.saveEditBtn);
 
         this.openOnHostBtn = Button.builder(Component.literal("Open"), btn -> openOnHost())
-                .bounds(465, 82, 40, 16)
+                .bounds(saveX, 52, 40, 14)
                 .build();
         this.addRenderableWidget(this.openOnHostBtn);
 
@@ -234,7 +236,7 @@ public class PackBrowserScreen extends Screen {
             this.saveEditBtn.visible = isJson;
         }
         if (this.openOnHostBtn != null) {
-            this.openOnHostBtn.visible = isJson;
+            this.openOnHostBtn.visible = selectedNode != null && !selectedNode.isDirectory;
         }
     }
 
@@ -434,8 +436,8 @@ public class PackBrowserScreen extends Screen {
             return;
         }
 
-        boolean exportedAssets = false;
-        boolean exportedData = false;
+        Set<Path> exportedAssetDirs = new HashSet<>();
+        Set<Path> exportedDataDirs = new HashSet<>();
 
         for (String rel : selectedPaths) {
             Path targetFile = resolveExportPath(rel);
@@ -448,9 +450,9 @@ public class PackBrowserScreen extends Screen {
                             Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
                         }
                         if (rel.startsWith("assets/")) {
-                            exportedAssets = true;
+                            exportedAssetDirs.add(targetFile.getParent());
                         } else if (rel.startsWith("data/")) {
-                            exportedData = true;
+                            exportedDataDirs.add(targetFile.getParent());
                         }
                     }
                 } catch (Exception e) {
@@ -467,13 +469,13 @@ public class PackBrowserScreen extends Screen {
         }
 
         if (ModConfig.get().openFolderOnExport) {
-            if (exportedAssets) {
+            if (!exportedAssetDirs.isEmpty()) {
                 Path exportRoot = ExportPaths.assetsRoot(this.minecraft.gameDirectory.toPath()).getParent();
-                Util.getPlatform().openUri(exportRoot.toUri());
+                Util.getPlatform().openUri(ExportPaths.folderToOpen(exportedAssetDirs, exportRoot).toUri());
             }
-            if (exportedData) {
+            if (!exportedDataDirs.isEmpty()) {
                 Path exportRoot = ExportPaths.dataRoot(this.minecraft.gameDirectory.toPath()).getParent();
-                Util.getPlatform().openUri(exportRoot.toUri());
+                Util.getPlatform().openUri(ExportPaths.folderToOpen(exportedDataDirs, exportRoot).toUri());
             }
         }
 

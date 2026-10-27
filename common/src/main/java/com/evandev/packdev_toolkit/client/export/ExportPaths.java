@@ -3,8 +3,13 @@ package com.evandev.packdev_toolkit.client.export;
 import com.evandev.packdev_toolkit.config.ModConfig;
 
 import java.nio.file.Path;
+import java.util.Set;
 
 public class ExportPaths {
+    public static Path folderToOpen(Set<Path> exportedDirs, Path packRoot) {
+        return exportedDirs.size() == 1 ? exportedDirs.iterator().next() : packRoot;
+    }
+
     public static Path assetsRoot(Path baseDir) {
         Path configured = Path.of(ModConfig.get().resourcePackExportDirectory);
         Path resolved = configured.isAbsolute() ? configured : baseDir.resolve(configured);
