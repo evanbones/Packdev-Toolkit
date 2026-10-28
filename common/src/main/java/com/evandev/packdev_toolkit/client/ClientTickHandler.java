@@ -16,9 +16,6 @@ public class ClientTickHandler {
     private static boolean copyWasDown = false;
     private static boolean descriptionWasDown = false;
 
-    private ClientTickHandler() {
-    }
-
     public static void onClientTick(Minecraft mc) {
         boolean exportDown = isPhysicallyDown(mc, ModKeyBindings.EXPORT);
         if (exportDown && !exportWasDown && !isTypingInField(mc)) {

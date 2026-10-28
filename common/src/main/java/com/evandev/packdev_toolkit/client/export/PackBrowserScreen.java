@@ -1,11 +1,15 @@
 package com.evandev.packdev_toolkit.client.export;
 
 import com.evandev.packdev_toolkit.Constants;
+import com.evandev.packdev_toolkit.client.gui.GuiUtil;
+import com.evandev.packdev_toolkit.client.gui.ModEditBox;
 import com.evandev.packdev_toolkit.config.ModConfig;
 import com.evandev.packdev_toolkit.platform.ModJarInfo;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,7 +20,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import org.jetbrains.annotations.NotNull;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -35,6 +41,14 @@ public class PackBrowserScreen extends Screen {
     static final ResourceLocation IMAGE_ICON = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/icons/image.png");
     static final ResourceLocation ZIP_ICON = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/icons/zip.png");
     static final ResourceLocation MCMETA_ICON = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/icons/mcmeta.png");
+    private static final int GAP = 6;
+    private static final int HEADER_HEIGHT = 24;
+    private static final String NAME_LABEL = "Name";
+    private static final int MIN_LEFT_WIDTH = 150;
+    private static final int MIN_RENAME_BOX_WIDTH = 40;
+    // Kept between visits so a dragged divider stays where it was put
+    private static int chosenLeftWidth = -1;
+    private static long resizeCursor = 0L;
     final Set<String> selectedPaths = new HashSet<>();
     final TreeNode treeRoot = new TreeNode("", "", true, -1, null);
     final Set<String> expandedPaths = new HashSet<>();
@@ -48,17 +62,29 @@ public class PackBrowserScreen extends Screen {
     private String selectedFileText = null;
     private String selectedFileName = "";
     private String saveStatusMessage = "No file selected";
-    private int saveStatusColor = 0x888888;
+    private int saveStatusColor = GuiUtil.STATUS_NEUTRAL;
+    private long selectedFileSize = -1;
     private String lastValidatedText = "";
     private ResourceLocation previewTextureLocation = null;
     private DynamicTexture previewTexture = null;
     private NativeImage previewImage = null;
 
-    private MultiLineEditBox jsonEditorBox;
+    private JsonEditorBox jsonEditorBox;
     private EditBox renameBox;
     private Button saveRenameBtn;
     private Button saveEditBtn;
     private Button openOnHostBtn;
+
+    private int[] leftPanel;
+    private int[] rightPanel;
+    private int rightInnerX;
+    private int rightInnerY;
+    private int rightInnerW;
+    private int footerY;
+    private int counterY;
+    private boolean draggingDivider = false;
+    private int dividerGrabOffset;
+    private boolean showingResizeCursor = false;
 
     public PackBrowserScreen(Screen parent, ModJarInfo mod) {
         super(Component.literal("Packdev Toolkit Browser"));
@@ -160,56 +186,251 @@ public class PackBrowserScreen extends Screen {
         }
     }
 
+    private void computeLayout() {
+        int pad = GuiUtil.PANEL_PADDING;
+        int contentY = GuiUtil.TOP_BAR_HEIGHT + GAP;
+        int panelH = this.height - contentY - GAP;
+        int leftW = clampLeftWidth(chosenLeftWidth > 0 ? chosenLeftWidth : (int) (this.width * 0.4));
+
+        leftPanel = new int[]{GAP, contentY, leftW, panelH};
+        rightPanel = new int[]{GAP * 2 + leftW, contentY, this.width - leftW - GAP * 3, panelH};
+
+        rightInnerX = rightPanel[0] + pad;
+        rightInnerY = rightPanel[1] + pad;
+        rightInnerW = rightPanel[2] - pad * 2;
+        footerY = rightPanel[1] + rightPanel[3] - pad - 9 - GuiUtil.TEXT_INSET;
+    }
+
+    private int clampLeftWidth(int width) {
+        return Mth.clamp(width, MIN_LEFT_WIDTH, Math.max(MIN_LEFT_WIDTH, this.width - GAP * 3 - minRightWidth()));
+    }
+
+    /**
+     * Just enough for the rename row: the label, a usable text box and the Rename and Save buttons.
+     */
+    private int minRightWidth() {
+        int rowWidth = GuiUtil.TEXT_INSET + this.font.width(NAME_LABEL) + 5 + MIN_RENAME_BOX_WIDTH + 4 + 50 + 2 + 40;
+        return rowWidth + GuiUtil.PANEL_PADDING * 2;
+    }
+
+    /**
+     * The gap between the panels, plus a couple of pixels of each panel's edge so it isn't fiddly to grab.
+     */
+    private boolean isOverDivider(double mouseX, double mouseY) {
+        int dividerX = leftPanel[0] + leftPanel[2];
+        return mouseX >= dividerX - 2 && mouseX < rightPanel[0] + 2
+                && mouseY >= leftPanel[1] && mouseY < leftPanel[1] + leftPanel[3];
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && isOverDivider(mouseX, mouseY)) {
+            this.draggingDivider = true;
+            this.dividerGrabOffset = (int) mouseX - (leftPanel[0] + leftPanel[2]);
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (this.draggingDivider) {
+            int newWidth = clampLeftWidth((int) mouseX - this.dividerGrabOffset - leftPanel[0]);
+            if (newWidth != leftPanel[2]) {
+                chosenLeftWidth = newWidth;
+                this.rebuildWidgets();
+            }
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (this.draggingDivider && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            this.draggingDivider = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private void updateCursor(boolean resize) {
+        if (resize == this.showingResizeCursor || this.minecraft == null) return;
+        this.showingResizeCursor = resize;
+        if (resize && resizeCursor == 0L) {
+            resizeCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HRESIZE_CURSOR);
+        }
+        GLFW.glfwSetCursor(this.minecraft.getWindow().getWindow(), resize ? resizeCursor : 0L);
+    }
+
+    @Override
+    public void removed() {
+        updateCursor(false);
+        super.removed();
+    }
+
     @Override
     protected void init() {
-        this.searchBox = new EditBox(this.font, 10, 55, 170, 18, Component.literal("Search files"));
+        // Widgets are rebuilt on resize, so carry over anything typed into the old ones
+        String previousSearch = this.searchBox != null ? this.searchBox.getValue() : "";
+        String previousName = this.renameBox != null ? this.renameBox.getValue() : this.selectedFileName;
+        double previousListScroll = this.resourceListWidget != null ? this.resourceListWidget.getScrollAmount() : 0;
+        double previousListScrollX = this.resourceListWidget != null ? this.resourceListWidget.getScrollX() : 0;
+        double previousEditorScroll = 0;
+        if (this.jsonEditorBox != null && this.jsonEditorBox.visible) {
+            this.selectedFileText = this.jsonEditorBox.getValue();
+            previousEditorScroll = this.jsonEditorBox.getScroll();
+        }
+        computeLayout();
+        int pad = GuiUtil.PANEL_PADDING;
+
+        int leftInnerX = leftPanel[0] + pad;
+        int leftInnerY = leftPanel[1] + pad;
+        int leftInnerW = leftPanel[2] - pad * 2;
+        int leftBottom = leftPanel[1] + leftPanel[3] - pad;
+
+        this.searchBox = new ModEditBox(this.font, leftInnerX, leftInnerY, leftInnerW, 16, Component.literal("Search files"));
+        this.searchBox.setHint(Component.literal("Search files...").withStyle(ChatFormatting.GRAY));
+        this.searchBox.setValue(previousSearch);
         this.searchBox.setResponder(this::onSearchChanged);
         this.addRenderableWidget(this.searchBox);
 
-        this.resourceListWidget = new ResourceListWidget(this, this.minecraft, 174, this.height - 138, 78, 18);
-        this.resourceListWidget.setX(8);
+        int buttonsY = leftBottom - 20;
+        int listY = leftInnerY + 20;
+        int listBottom = buttonsY - 16;
+        this.counterY = listBottom + 4;
+        this.resourceListWidget = new ResourceListWidget(this, leftInnerX, listY, leftInnerW, listBottom - listY, 18);
         this.addRenderableWidget(this.resourceListWidget);
 
-        this.jsonEditorBox = new MultiLineEditBox(this.font, 190, 102, this.width - 200, this.height - 152, Component.literal("Select a file to edit"), Component.literal("JSON Editor"));
-        this.addRenderableWidget(this.jsonEditorBox);
-
-        int saveX = this.width - 55;
-        int renameX = saveX - 55;
-        this.renameBox = new EditBox(this.font, 250, 82, renameX - 255, 16, Component.literal("New Name"));
-        this.addRenderableWidget(this.renameBox);
-
-        this.saveRenameBtn = Button.builder(Component.literal("Rename"), btn -> saveRename())
-                .bounds(renameX, 82, 50, 16)
-                .build();
-        this.addRenderableWidget(this.saveRenameBtn);
-
-        this.saveEditBtn = Button.builder(Component.literal("Save"), btn -> saveEdit())
-                .bounds(saveX, 82, 40, 16)
-                .build();
-        this.addRenderableWidget(this.saveEditBtn);
-
-        this.openOnHostBtn = Button.builder(Component.literal("Open"), btn -> openOnHost())
-                .bounds(saveX, 52, 40, 14)
-                .build();
-        this.addRenderableWidget(this.openOnHostBtn);
-
-        updateRightPanelWidgets();
-        onSearchChanged(this.searchBox.getValue());
-
-        int buttonsY = this.height - 28;
+        int buttonW = (leftInnerW - 4) / 3;
         this.addRenderableWidget(Button.builder(Component.literal("Export"), btn -> exportSelected())
-                .bounds(10, buttonsY, 50, 18)
+                .bounds(leftInnerX, buttonsY, buttonW, 20)
                 .build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Select All"), btn -> selectAllFiltered())
-                .bounds(65, buttonsY, 65, 18)
+                .bounds(leftInnerX + buttonW + 2, buttonsY, buttonW, 20)
                 .build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Back"), btn -> {
             if (this.minecraft != null) {
                 this.minecraft.setScreen(this.parent);
             }
-        }).bounds(135, buttonsY, 40, 18).build());
+        }).bounds(leftInnerX + (buttonW + 2) * 2, buttonsY, leftInnerW - (buttonW + 2) * 2, 20).build());
+
+        int rightEdge = rightInnerX + rightInnerW;
+        this.openOnHostBtn = Button.builder(Component.literal("Open"), btn -> openOnHost())
+                .bounds(rightEdge - 44, rightInnerY, 44, 20)
+                .build();
+        this.addRenderableWidget(this.openOnHostBtn);
+
+        int rowY = rightInnerY + HEADER_HEIGHT;
+        int saveX = rightEdge - 40;
+        int renameX = saveX - 2 - 50;
+        int nameX = rightInnerX + GuiUtil.TEXT_INSET + this.font.width(NAME_LABEL) + 5;
+        this.renameBox = new ModEditBox(this.font, nameX, rowY + 2, renameX - 4 - nameX, 16, Component.literal("New Name"));
+        this.addRenderableWidget(this.renameBox);
+
+        this.saveRenameBtn = Button.builder(Component.literal("Rename"), btn -> saveRename())
+                .bounds(renameX, rowY, 50, 20)
+                .build();
+        this.addRenderableWidget(this.saveRenameBtn);
+
+        this.saveEditBtn = Button.builder(Component.literal("Save"), btn -> saveEdit())
+                .bounds(saveX, rowY, 40, 20)
+                .build();
+        this.addRenderableWidget(this.saveEditBtn);
+
+        int editorY = rowY + 24;
+        // The box's bounds leave out its scrollbar, which sits to the right as in the file list
+        int editorW = rightInnerW - GuiUtil.SCROLLBAR_GAP - GuiUtil.SCROLLBAR_WIDTH;
+        this.jsonEditorBox = new JsonEditorBox(this.font, rightInnerX, editorY, editorW, footerY - 5 - editorY);
+        this.addRenderableWidget(this.jsonEditorBox);
+
+        updateRightPanelWidgets();
+        this.renameBox.setValue(previousName);
+        this.jsonEditorBox.setScroll(previousEditorScroll);
+        onSearchChanged(this.searchBox.getValue());
+        this.resourceListWidget.setScroll(previousListScroll, previousListScrollX);
+    }
+
+    /**
+     * Swaps vanilla's bare scroller, drawn hanging off the box's right edge, for the same track and thumb as the
+     * file list.
+     */
+    private static class JsonEditorBox extends MultiLineEditBox {
+        private boolean draggingScrollbar = false;
+
+        JsonEditorBox(Font font, int x, int y, int width, int height) {
+            super(font, x, y, width, height, Component.literal("Select a file to edit"), Component.literal("JSON Editor"));
+        }
+
+        double getScroll() {
+            return this.scrollAmount();
+        }
+
+        void setScroll(double scroll) {
+            this.setScrollAmount(scroll);
+        }
+
+        private int scrollbarX() {
+            return this.getX() + this.width + GuiUtil.SCROLLBAR_GAP;
+        }
+
+        private boolean isOverScrollbar(double mouseX, double mouseY) {
+            return this.visible && mouseX >= scrollbarX() && mouseX < scrollbarX() + GuiUtil.SCROLLBAR_WIDTH
+                    && mouseY >= this.getY() && mouseY < this.getY() + this.height;
+        }
+
+        private void scrollToMouse(double mouseY) {
+            this.setScrollAmount(GuiUtil.scrollAmountFromMouse(mouseY, this.getY(), this.height, this.getMaxScrollAmount()));
+        }
+
+        @Override
+        public boolean isMouseOver(double mouseX, double mouseY) {
+            // So the wheel scrolls the editor over its scrollbar too
+            return super.isMouseOver(mouseX, mouseY) || isOverScrollbar(mouseX, mouseY);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && isOverScrollbar(mouseX, mouseY)) {
+                this.draggingScrollbar = true;
+                scrollToMouse(mouseY);
+                return true;
+            }
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        @Override
+        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            if (this.draggingScrollbar && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                scrollToMouse(mouseY);
+                return true;
+            }
+            return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                this.draggingScrollbar = false;
+            }
+            return super.mouseReleased(mouseX, mouseY, button);
+        }
+
+        @Override
+        protected void renderDecorations(@NotNull GuiGraphics guiGraphics) {
+            GuiUtil.drawScrollbar(guiGraphics, scrollbarX(), this.getY(), this.height, this.scrollAmount(), this.getMaxScrollAmount());
+        }
+
+        @Override
+        protected void renderBorder(@NotNull GuiGraphics guiGraphics, int x, int y, int width, int height) {
+            GuiUtil.blitSprite(guiGraphics, this.isFocused() ? GuiUtil.TEXT_FIELD_HIGHLIGHTED : GuiUtil.TEXT_FIELD, x, y, width, height);
+        }
+    }
+
+    TreeNode getSelectedNode() {
+        return this.selectedNode;
     }
 
     private void onSearchChanged(String text) {
@@ -245,7 +466,7 @@ public class PackBrowserScreen extends Screen {
         this.selectedFileName = node.name;
         this.selectedFileText = "";
         this.saveStatusMessage = "Loading...";
-        this.saveStatusColor = 0xFFCC00;
+        this.saveStatusColor = GuiUtil.STATUS_PENDING;
         this.lastValidatedText = "";
 
         if (this.previewTexture != null) {
@@ -257,20 +478,26 @@ public class PackBrowserScreen extends Screen {
             this.previewImage = null;
         }
         this.previewTextureLocation = null;
+        this.selectedFileSize = -1;
 
         Path src = findSourcePath(node.relativePath);
         if (src != null) {
+            try {
+                this.selectedFileSize = Files.size(src);
+            } catch (Exception ignored) {
+            }
+
             if (node.relativePath.endsWith(".json")) {
                 try {
                     selectedFileText = Files.readString(src);
-                    saveStatusMessage = "Loaded successfully";
-                    saveStatusColor = 0x55FF55;
+                    saveStatusMessage = "Loaded";
+                    saveStatusColor = GuiUtil.STATUS_OK;
                     this.lastValidatedText = selectedFileText;
                     runJsonLint(selectedFileText);
                 } catch (Exception e) {
                     selectedFileText = "Failed to read file: " + e.getMessage();
                     saveStatusMessage = "Error reading file";
-                    saveStatusColor = 0xFF5555;
+                    saveStatusColor = GuiUtil.STATUS_ERROR;
                 }
             } else if (node.relativePath.endsWith(".png")) {
                 try (InputStream is = Files.newInputStream(src)) {
@@ -280,19 +507,19 @@ public class PackBrowserScreen extends Screen {
                     if (this.minecraft != null) {
                         this.minecraft.getTextureManager().register(this.previewTextureLocation, this.previewTexture);
                     }
-                    saveStatusMessage = "Image loaded successfully";
-                    saveStatusColor = 0x55FF55;
+                    saveStatusMessage = "Image loaded";
+                    saveStatusColor = GuiUtil.STATUS_OK;
                 } catch (Exception e) {
                     saveStatusMessage = "Failed to load image: " + e.getMessage();
-                    saveStatusColor = 0xFF5555;
+                    saveStatusColor = GuiUtil.STATUS_ERROR;
                 }
             } else {
                 saveStatusMessage = "Preview not supported for this file type";
-                saveStatusColor = 0x888888;
+                saveStatusColor = GuiUtil.STATUS_NEUTRAL;
             }
         } else {
             saveStatusMessage = "File not found";
-            saveStatusColor = 0xFF5555;
+            saveStatusColor = GuiUtil.STATUS_ERROR;
         }
         updateRightPanelWidgets();
     }
@@ -310,7 +537,7 @@ public class PackBrowserScreen extends Screen {
                 Files.createDirectories(targetFile.getParent());
                 Files.writeString(targetFile, textToSave);
                 saveStatusMessage = "Saved edit successfully!";
-                saveStatusColor = 0x55FF55;
+                saveStatusColor = GuiUtil.STATUS_OK;
                 if (this.minecraft.player != null) {
                     this.minecraft.player.displayClientMessage(
                             Component.literal("Saved and exported: " + targetFile.getFileName()),
@@ -320,7 +547,7 @@ public class PackBrowserScreen extends Screen {
             } catch (Exception e) {
                 Constants.LOG.error("Failed to save edit for {}", rel, e);
                 saveStatusMessage = "Save failed: " + e.getMessage();
-                saveStatusColor = 0xFF5555;
+                saveStatusColor = GuiUtil.STATUS_ERROR;
             }
         }
     }
@@ -332,7 +559,7 @@ public class PackBrowserScreen extends Screen {
         String newName = renameBox.getValue().trim();
         if (!newName.endsWith(".json")) {
             saveStatusMessage = "Invalid name (must end in .json)";
-            saveStatusColor = 0xFF5555;
+            saveStatusColor = GuiUtil.STATUS_ERROR;
             return;
         }
 
@@ -351,7 +578,7 @@ public class PackBrowserScreen extends Screen {
                 String textToSave = jsonEditorBox != null ? jsonEditorBox.getValue() : selectedFileText;
                 Files.writeString(targetFile, textToSave);
                 saveStatusMessage = "Renamed and exported!";
-                saveStatusColor = 0x55FF55;
+                saveStatusColor = GuiUtil.STATUS_OK;
                 if (this.minecraft.player != null) {
                     this.minecraft.player.displayClientMessage(
                             Component.literal("Renamed and exported to: " + newName),
@@ -361,7 +588,7 @@ public class PackBrowserScreen extends Screen {
             } catch (Exception e) {
                 Constants.LOG.error("Failed to rename file {}", rel, e);
                 saveStatusMessage = "Rename failed: " + e.getMessage();
-                saveStatusColor = 0xFF5555;
+                saveStatusColor = GuiUtil.STATUS_ERROR;
             }
         }
     }
@@ -385,11 +612,11 @@ public class PackBrowserScreen extends Screen {
                 }
                 Util.getPlatform().openUri(targetFile.toUri());
                 saveStatusMessage = "Opened on host machine";
-                saveStatusColor = 0x55FF55;
+                saveStatusColor = GuiUtil.STATUS_OK;
             } catch (Exception e) {
                 Constants.LOG.error("Failed to open file on host: {}", rel, e);
                 saveStatusMessage = "Open failed: " + e.getMessage();
-                saveStatusColor = 0xFF5555;
+                saveStatusColor = GuiUtil.STATUS_ERROR;
             }
         }
     }
@@ -507,13 +734,13 @@ public class PackBrowserScreen extends Screen {
     private void runJsonLint(String text) {
         if (text.trim().isEmpty()) {
             saveStatusMessage = "Empty file";
-            saveStatusColor = 0x888888;
+            saveStatusColor = GuiUtil.STATUS_NEUTRAL;
             return;
         }
         try {
             JsonParser.parseString(text);
             saveStatusMessage = "JSON Status: Valid";
-            saveStatusColor = 0x55FF55;
+            saveStatusColor = GuiUtil.STATUS_OK;
         } catch (JsonSyntaxException e) {
             String msg = e.getMessage();
             if (msg.contains("at line")) {
@@ -521,123 +748,170 @@ public class PackBrowserScreen extends Screen {
                 msg = msg.substring(atIdx);
             }
             saveStatusMessage = "Lint Error: " + msg;
-            saveStatusColor = 0xFF5555;
+            saveStatusColor = GuiUtil.STATUS_ERROR;
         } catch (Exception e) {
             saveStatusMessage = "Lint Error: " + e.getMessage();
-            saveStatusColor = 0xFF5555;
+            saveStatusColor = GuiUtil.STATUS_ERROR;
         }
     }
 
     @Override
     public void renderBackground(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        GuiUtil.drawTopBar(guiGraphics, this.width);
+        GuiUtil.drawVanillaPanel(guiGraphics, leftPanel[0], leftPanel[1], leftPanel[2], leftPanel[3]);
+        GuiUtil.drawVanillaPanel(guiGraphics, rightPanel[0], rightPanel[1], rightPanel[2], rightPanel[3]);
+        renderDivider(guiGraphics, mouseX, mouseY);
+
+        if (selectedNode != null && !isJsonSelected()) {
+            int previewY = rightInnerY + HEADER_HEIGHT;
+            GuiUtil.drawWell(guiGraphics, rightInnerX, previewY, rightInnerW, footerY - 5 - previewY);
+        }
+    }
+
+    private void renderDivider(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        boolean active = this.draggingDivider || isOverDivider(mouseX, mouseY);
+        updateCursor(active);
+        int x = leftPanel[0] + leftPanel[2] + GAP / 2 - 1;
+        int top = leftPanel[1];
+        int bottom = top + leftPanel[3];
+        if (active) {
+            guiGraphics.fill(x, top + 4, x + 2, bottom - 4, 0x80FFFFFF);
+        }
+        int mid = (top + bottom) / 2;
+        for (int i = -1; i <= 1; i++) {
+            int dotY = mid + i * 4;
+            guiGraphics.fill(x, dotY - 1, x + 2, dotY + 1, active ? 0xFFFFFFFF : 0xFFA0A0A0);
+        }
     }
 
     @Override
     public void render(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        guiGraphics.fill(0, 0, this.width, this.height, 0x60000000);
-
-        guiGraphics.fill(5, 50, 185, this.height - 8, 0x90000000);
-        drawPanelBorder(guiGraphics, 5, 50, 185, this.height - 8, 0xFF404040);
-
-        guiGraphics.fill(190, 50, this.width - 10, this.height - 8, 0x90000000);
-        drawPanelBorder(guiGraphics, 190, 50, this.width - 10, this.height - 8, 0xFF404040);
-
-        guiGraphics.fill(0, 0, this.width, 45, 0x90000000);
-        drawPanelBorder(guiGraphics, 0, 0, this.width, 45, 0xFF404040);
-
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
-        guiGraphics.drawString(this.font, "Packdev Toolkit Browser - " + mod.name(), 10, 8, 0xFFFFFF, true);
-        guiGraphics.drawString(this.font, "Mod ID: " + mod.id() + " v" + mod.version(), 10, 22, 0x888888, true);
+        int titleY = (GuiUtil.TOP_BAR_HEIGHT - 8) / 2;
+        guiGraphics.drawString(this.font, mod.name(), 8, titleY, 0xFFFFFF, true);
+        int detailsX = 8 + this.font.width(mod.name()) + 8;
+        String details = GuiUtil.ellipsize(this.font, mod.id() + " v" + mod.version(), this.width - detailsX - 8);
+        guiGraphics.drawString(this.font, details, detailsX, titleY, GuiUtil.SUBTEXT, true);
 
-        if (selectedNode != null) {
-            String fileNameLabel = selectedNode.name;
-            guiGraphics.drawString(this.font, fileNameLabel, 195, 55, 0xFFFFFF, false);
+        String counterText = selectedPaths.size() == 1 ? "1 file selected" : selectedPaths.size() + " files selected";
+        guiGraphics.drawString(this.font, counterText, leftPanel[0] + GuiUtil.PANEL_PADDING + GuiUtil.TEXT_INSET, counterY, GuiUtil.TEXT, true);
 
-            String pathLabel = "Path: " + selectedNode.relativePath;
-            guiGraphics.drawString(this.font, pathLabel, 195, 68, 0x888888, false);
+        if (selectedNode == null) {
+            String hint = GuiUtil.ellipsize(this.font, "Select a file to edit or preview", rightInnerW);
+            int hintX = rightInnerX + (rightInnerW - this.font.width(hint)) / 2;
+            guiGraphics.drawString(this.font, hint, hintX, rightPanel[1] + rightPanel[3] / 2 - 4, GuiUtil.SUBTEXT, true);
+            return;
+        }
 
-            if (selectedNode.relativePath.endsWith(".json")) {
-                guiGraphics.drawString(this.font, "New Name:", 195, 86, 0xDDDDDD, false);
-            }
+        int textX = rightInnerX + GuiUtil.TEXT_INSET;
+        int textW = rightInnerW - GuiUtil.TEXT_INSET * 2;
+        int headerTextW = textW - (openOnHostBtn.visible ? openOnHostBtn.getWidth() + 6 - GuiUtil.TEXT_INSET : 0);
+        guiGraphics.drawString(this.font, GuiUtil.ellipsize(this.font, selectedNode.name, headerTextW), textX, rightInnerY + 2, GuiUtil.TEXT, true);
+        String path = GuiUtil.ellipsizeStart(this.font, selectedNode.relativePath, headerTextW);
+        guiGraphics.drawString(this.font, path, textX, rightInnerY + 13, GuiUtil.SUBTEXT, true);
+        if (!path.equals(selectedNode.relativePath) && mouseX >= textX && mouseX < textX + headerTextW
+                && mouseY >= rightInnerY + 12 && mouseY < rightInnerY + 22) {
+            this.setTooltipForNextRenderPass(Component.literal(selectedNode.relativePath));
+        }
 
-            if (selectedNode.relativePath.endsWith(".png") && previewTextureLocation != null && previewImage != null) {
-                int imgW = previewImage.getWidth();
-                int imgH = previewImage.getHeight();
-                int drawWidth = 64;
-                int drawHeight = 64;
-                if (imgW > 0 && imgH > 0) {
-                    float ratio = (float) imgW / imgH;
-                    int maxW = this.width - 220;
-                    int maxH = this.height - 170;
-                    if (imgW > maxW || imgH > maxH) {
-                        if (ratio > (float) maxW / maxH) {
-                            drawWidth = maxW;
-                            drawHeight = Math.round(maxW / ratio);
-                        } else {
-                            drawHeight = maxH;
-                            drawWidth = Math.round(maxH * ratio);
-                        }
-                    } else {
-                        drawWidth = imgW;
-                        drawHeight = imgH;
-                    }
-                }
-
-                int imageX = 190 + (this.width - 200 - drawWidth) / 2;
-                int imageY = 102 + (this.height - 152 - drawHeight) / 2;
-
-                guiGraphics.blit(previewTextureLocation, imageX, imageY, 0, 0, drawWidth, drawHeight, drawWidth, drawHeight);
-
-                String dimLabel = String.format("Dimensions: %dx%d", imgW, imgH);
-                guiGraphics.drawCenteredString(this.font, dimLabel, 190 + (this.width - 200) / 2, imageY + drawHeight + 10, 0xAAAAAA);
-            }
+        if (isJsonSelected()) {
+            guiGraphics.drawString(this.font, NAME_LABEL, textX, rightInnerY + HEADER_HEIGHT + 6, GuiUtil.TEXT, true);
         } else {
-            guiGraphics.drawCenteredString(this.font, "Select a file on the left to edit or preview", (190 + this.width) / 2, this.height / 2, 0x888888);
+            renderPreview(guiGraphics);
         }
 
-        guiGraphics.drawString(this.font, saveStatusMessage, 195, this.height - 22, saveStatusColor, false);
+        String statsText = getStatsText();
+        int statsW = this.font.width(statsText);
+        guiGraphics.drawString(this.font, statsText, textX + textW - statsW, footerY, GuiUtil.SUBTEXT, true);
+        int statusW = textW - (statsW > 0 ? statsW + 8 : 0);
+        guiGraphics.drawString(this.font, GuiUtil.ellipsize(this.font, saveStatusMessage, statusW), textX, footerY, saveStatusColor, true);
+    }
 
-        if (selectedNode != null && !selectedNode.isDirectory) {
-            String statsText = "";
-            if (selectedNode.relativePath.endsWith(".json") && jsonEditorBox != null) {
-                String val = jsonEditorBox.getValue();
-                int lines = val.split("\n", -1).length;
-                int size = val.getBytes(StandardCharsets.UTF_8).length;
-                statsText = String.format("Lines: %d | Size: %d B", lines, size);
-            } else if (selectedNode.relativePath.endsWith(".png") && previewImage != null) {
-                Path src = findSourcePath(selectedNode.relativePath);
-                if (src != null) {
-                    try {
-                        long size = Files.size(src);
-                        statsText = String.format("Size: %d B", size);
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
-            if (!statsText.isEmpty()) {
-                guiGraphics.drawString(this.font, statsText, this.width - this.font.width(statsText) - 15, this.height - 22, 0xAAAAAA, false);
-            }
+    private boolean isJsonSelected() {
+        return selectedNode != null && !selectedNode.isDirectory && selectedNode.relativePath.endsWith(".json");
+    }
+
+    private void renderPreview(GuiGraphics guiGraphics) {
+        int wellY = rightInnerY + HEADER_HEIGHT;
+        int wellH = footerY - 5 - wellY;
+        int availW = rightInnerW - 12;
+        int availH = wellH - 12;
+
+        if (previewTextureLocation == null || previewImage == null) {
+            String message = GuiUtil.ellipsize(this.font, "No preview available", availW);
+            guiGraphics.drawCenteredString(this.font, message, rightInnerX + rightInnerW / 2, wellY + wellH / 2 - 4, GuiUtil.SUBTEXT);
+            return;
         }
 
-        String counterText = String.format("Selected: %d files", selectedPaths.size());
-        guiGraphics.drawString(this.font, counterText, 10, this.height - 46, 0x55FF55, false);
+        int imgW = previewImage.getWidth();
+        int imgH = previewFrameHeight();
+        if (imgW <= 0 || imgH <= 0 || availW <= 0 || availH <= 0) return;
+
+        int drawWidth;
+        int drawHeight;
+        if (imgW <= availW && imgH <= availH) {
+            // Whole-number scaling keeps pixel art crisp
+            int scale = Math.max(1, Math.min(availW / imgW, availH / imgH));
+            drawWidth = imgW * scale;
+            drawHeight = imgH * scale;
+        } else {
+            float fit = Math.min((float) availW / imgW, (float) availH / imgH);
+            drawWidth = Math.max(1, Math.round(imgW * fit));
+            drawHeight = Math.max(1, Math.round(imgH * fit));
+        }
+
+        int imageX = rightInnerX + (rightInnerW - drawWidth) / 2;
+        int imageY = wellY + (wellH - drawHeight) / 2;
+
+        GuiUtil.drawCheckerboard(guiGraphics, imageX, imageY, drawWidth, drawHeight, Math.max(4, Math.min(drawWidth, drawHeight) / 8));
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        guiGraphics.blit(previewTextureLocation, imageX, imageY, drawWidth, drawHeight, 0, 0, imgW, imgH, imgW, previewImage.getHeight());
+        RenderSystem.disableBlend();
     }
 
-    private void drawPanelBorder(GuiGraphics guiGraphics, int left, int top, int right, int bottom, int color) {
-        guiGraphics.fill(left, top, right, top + 1, color);
-        guiGraphics.fill(left, bottom - 1, right, bottom, color);
-        guiGraphics.fill(left, top + 1, left + 1, bottom - 1, color);
-        guiGraphics.fill(right - 1, top + 1, right, bottom - 1, color);
+    /**
+     * Animated textures are vertical strips of square frames, so only the first frame is previewed.
+     */
+    private int previewFrameHeight() {
+        int w = previewImage.getWidth();
+        int h = previewImage.getHeight();
+        boolean animated = selectedNode != null && allFilePaths.contains(selectedNode.relativePath + ".mcmeta");
+        return animated && h > w && h % w == 0 ? w : h;
     }
 
-    void renderTreeGuides(GuiGraphics guiGraphics, TreeNode node, int startX, int startY) {
+    private String getStatsText() {
+        if (isJsonSelected() && jsonEditorBox != null) {
+            String val = jsonEditorBox.getValue();
+            int lines = val.split("\n", -1).length;
+            int size = val.getBytes(StandardCharsets.UTF_8).length;
+            return String.format("%d lines | %s", lines, formatSize(size));
+        }
+        if (previewImage != null) {
+            String stats = previewImage.getWidth() + "x" + previewImage.getHeight();
+            int frames = previewImage.getHeight() / previewFrameHeight();
+            if (frames > 1) {
+                stats += " | " + frames + " frames";
+            }
+            return selectedFileSize >= 0 ? stats + " | " + formatSize(selectedFileSize) : stats;
+        }
+        return selectedFileSize >= 0 ? formatSize(selectedFileSize) : "";
+    }
+
+    private static String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        return String.format("%.1f KB", bytes / 1024.0);
+    }
+
+    void renderTreeGuides(GuiGraphics guiGraphics, TreeNode node, int startX, int startY, int rowHeight) {
         if (node.parent == null || node.parent == treeRoot) {
             return;
         }
 
-        int color = 0xFF404040;
-        int branchY = startY + 9;
+        int color = 0xFF5E5E5E;
+        int branchY = startY + rowHeight / 2;
 
         for (int depth = 1; depth <= node.depth; depth++) {
             TreeNode ancestor = getAncestorAtDepth(node, depth);
@@ -645,19 +919,20 @@ public class PackBrowserScreen extends Screen {
                 continue;
             }
 
-            int connectorX = startX + (depth * 12) - 8;
+            // Lines up with the centre of the parent's checkbox
+            int connectorX = startX + depth * TreeEntry.INDENT - 6;
             boolean hasContinuation = hasFollowingSiblingAtDepth(ancestor);
 
             if (depth < node.depth) {
                 if (hasContinuation) {
-                    guiGraphics.fill(connectorX, startY - 2, connectorX + 1, startY + 16, color);
+                    guiGraphics.fill(connectorX, startY, connectorX + 1, startY + rowHeight, color);
                 }
                 continue;
             }
 
-            guiGraphics.fill(connectorX, startY - 2, connectorX + 1, branchY, color);
+            guiGraphics.fill(connectorX, startY, connectorX + 1, branchY, color);
             if (hasContinuation) {
-                guiGraphics.fill(connectorX, branchY, connectorX + 1, startY + 16, color);
+                guiGraphics.fill(connectorX, branchY, connectorX + 1, startY + rowHeight, color);
             }
             guiGraphics.fill(connectorX, branchY, connectorX + 5, branchY + 1, color);
         }

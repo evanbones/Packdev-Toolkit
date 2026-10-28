@@ -46,9 +46,6 @@ import java.util.stream.Collectors;
 public class ExportCommand {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    private ExportCommand() {
-    }
-
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
         dispatcher.register(Commands.literal("export")
                 .then(Commands.literal("hand")

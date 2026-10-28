@@ -38,9 +38,6 @@ import java.util.stream.Collectors;
 public class QueryCommand {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    private QueryCommand() {
-    }
-
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
         dispatcher.register(Commands.literal("query")
                 .requires(source -> source.hasPermission(2))

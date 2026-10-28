@@ -7,6 +7,7 @@
   ],
   "client": [
     "client.KeyMappingAccessor",
+    "client.MaterialMixin",
     "client.RenderSystemMixin"
   ],
   "server": [],

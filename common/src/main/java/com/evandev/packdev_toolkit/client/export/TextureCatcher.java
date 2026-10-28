@@ -5,18 +5,9 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Captures every non-atlas texture bound via {@code RenderSystem.setShaderTexture} while
- * {@link #isCapturing()} is true. Fed by {@code RenderSystemMixin}; used to discover the
- * concrete texture(s) a block entity or entity renderer draws, since those aren't reachable
- * from a baked model's quads the way block/item textures are.
- */
 public class TextureCatcher {
     private static final Set<ResourceLocation> capturedTextures = new HashSet<>();
     private static boolean capturing = false;
-
-    private TextureCatcher() {
-    }
 
     public static void start() {
         capturing = true;
@@ -46,5 +37,14 @@ public class TextureCatcher {
         }
 
         capturedTextures.add(texture);
+    }
+
+    /**
+     * Records an atlas sprite by its sprite id, e.g. {@code minecraft:entity/chest/normal}.
+     */
+    public static void addSprite(ResourceLocation sprite) {
+        if (capturing && sprite != null) {
+            capturedTextures.add(sprite);
+        }
     }
 }

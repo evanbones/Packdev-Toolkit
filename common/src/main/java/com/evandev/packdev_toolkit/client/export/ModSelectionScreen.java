@@ -1,14 +1,19 @@
 package com.evandev.packdev_toolkit.client.export;
 
 import com.evandev.packdev_toolkit.Constants;
+import com.evandev.packdev_toolkit.client.gui.GuiUtil;
+import com.evandev.packdev_toolkit.client.gui.ModEditBox;
+import com.evandev.packdev_toolkit.client.gui.ScrollListWidget;
 import com.evandev.packdev_toolkit.platform.ModJarInfo;
 import com.evandev.packdev_toolkit.platform.Services;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
@@ -28,6 +33,7 @@ public class ModSelectionScreen extends Screen {
     private final Map<String, ResourceLocation> modIconCache = new HashMap<>();
     private ModListWidget modListWidget;
     private List<ModJarInfo> allMods;
+    private int[] panel;
 
     public ModSelectionScreen() {
         super(Component.literal("Packdev Toolkit - Select Mod"));
@@ -37,18 +43,26 @@ public class ModSelectionScreen extends Screen {
     protected void init() {
         this.allMods = Services.PLATFORM.getLoadedMods();
 
-        EditBox searchBox = new EditBox(this.font, this.width - 190, 13, 180, 18, Component.literal("Search Mods"));
+        int searchW = Math.min(160, this.width / 3);
+        EditBox searchBox = new ModEditBox(this.font, this.width - searchW - 6, 6, searchW, 16, Component.literal("Search Mods"));
+        searchBox.setHint(Component.literal("Search mods...").withStyle(ChatFormatting.GRAY));
         searchBox.setResponder(this::onSearchChanged);
         this.addRenderableWidget(searchBox);
 
-        this.modListWidget = new ModListWidget(this.minecraft, this.width - 16, this.height - 90, 53, 32);
-        this.modListWidget.setX(8);
+        int panelW = Math.min(this.width - 12, 360);
+        int panelX = (this.width - panelW) / 2;
+        int panelY = GuiUtil.TOP_BAR_HEIGHT + 6;
+        int panelH = this.height - panelY - 32;
+        this.panel = new int[]{panelX, panelY, panelW, panelH};
+
+        int pad = GuiUtil.PANEL_PADDING;
+        this.modListWidget = new ModListWidget(panelX + pad, panelY + pad, panelW - pad * 2, panelH - pad * 2, 30);
         this.addRenderableWidget(this.modListWidget);
 
         this.onSearchChanged(searchBox.getValue());
 
         this.addRenderableWidget(Button.builder(Component.literal("Cancel"), btn -> this.onClose())
-                .bounds(this.width / 2 - 50, this.height - 25, 100, 18)
+                .bounds(this.width / 2 - 50, this.height - 25, 100, 20)
                 .build());
     }
 
@@ -60,29 +74,21 @@ public class ModSelectionScreen extends Screen {
 
     @Override
     public void renderBackground(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        GuiUtil.drawTopBar(guiGraphics, this.width);
+        GuiUtil.drawVanillaPanel(guiGraphics, panel[0], panel[1], panel[2], panel[3]);
     }
 
     @Override
     public void render(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        guiGraphics.fill(0, 0, this.width, this.height, 0x60000000);
-
-        guiGraphics.fill(5, 50, this.width - 10, this.height - 35, 0x90000000);
-        drawPanelBorder(guiGraphics, 5, 50, this.width - 10, this.height - 35, 0xFF404040);
-
-        guiGraphics.fill(0, 0, this.width, 45, 0x90000000);
-        drawPanelBorder(guiGraphics, 0, 0, this.width, 45, 0xFF404040);
-
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
-        guiGraphics.drawString(this.font, "Packdev Toolkit - Select Mod", 10, 8, 0xFFFFFF, true);
-        guiGraphics.drawString(this.font, "Choose a loaded mod jar to browse and export resources", 10, 22, 0x888888, true);
-    }
-
-    private void drawPanelBorder(GuiGraphics guiGraphics, int left, int top, int right, int bottom, int color) {
-        guiGraphics.fill(left, top, right, top + 1, color);
-        guiGraphics.fill(left, bottom - 1, right, bottom, color);
-        guiGraphics.fill(left, top + 1, left + 1, bottom - 1, color);
-        guiGraphics.fill(right - 1, top + 1, right, bottom - 1, color);
+        int titleY = (GuiUtil.TOP_BAR_HEIGHT - 8) / 2;
+        String title = "Packdev Toolkit";
+        guiGraphics.drawString(this.font, title, 8, titleY, 0xFFFFFF, true);
+        int subtitleX = 8 + this.font.width(title) + 8;
+        int subtitleW = this.width - Math.min(160, this.width / 3) - 12 - subtitleX - 8;
+        guiGraphics.drawString(this.font, GuiUtil.ellipsize(this.font, "Select a mod to browse", subtitleW), subtitleX, titleY, GuiUtil.SUBTEXT, true);
     }
 
     @Override
@@ -145,14 +151,9 @@ public class ModSelectionScreen extends Screen {
         return null;
     }
 
-    class ModListWidget extends ObjectSelectionList<ModListWidget.ModEntry> {
-        public ModListWidget(Minecraft minecraft, int width, int height, int y, int itemHeight) {
-            super(minecraft, width, height, y, itemHeight);
-        }
-
-        @Override
-        protected int getScrollbarPosition() {
-            return this.getX() + this.width - 6;
+    class ModListWidget extends ScrollListWidget<ModListWidget.ModEntry> {
+        public ModListWidget(int x, int y, int width, int height, int itemHeight) {
+            super(x, y, width, height, itemHeight);
         }
 
         public void updateFilter(String query) {
@@ -164,9 +165,10 @@ public class ModSelectionScreen extends Screen {
                     this.addEntry(new ModEntry(mod));
                 }
             }
+            this.clampScroll();
         }
 
-        class ModEntry extends ObjectSelectionList.Entry<ModEntry> {
+        class ModEntry implements ScrollListWidget.Entry {
             private final ModJarInfo mod;
 
             public ModEntry(ModJarInfo mod) {
@@ -174,25 +176,24 @@ public class ModSelectionScreen extends Screen {
             }
 
             @Override
-            public @NotNull Component getNarration() {
-                return Component.literal(mod.name());
-            }
-
-            @Override
-            public void render(@NotNull GuiGraphics guiGraphics, int index, int top, int left, int width, int height, int mouseX, int mouseY, boolean isHovered, float partialTick) {
+            public void render(GuiGraphics guiGraphics, int top, int left, int width, int height, int mouseX, int mouseY, boolean isHovered) {
                 if (isHovered) {
-                    guiGraphics.fill(left, top, left + width, top + height, 0x15FFFFFF);
+                    guiGraphics.fill(left, top, left + width, top + height, GuiUtil.ROW_HOVER);
                 }
 
                 ResourceLocation iconLoc = getModIconTexture(mod);
-                guiGraphics.blit(iconLoc, left + 5, top + 5, 0, 0, 22, 22, 22, 22);
+                RenderSystem.enableBlend();
+                guiGraphics.blit(iconLoc, left + 4, top + 4, 0, 0, 22, 22, 22, 22);
+                RenderSystem.disableBlend();
 
-                guiGraphics.drawString(ModSelectionScreen.this.font, mod.name(), left + 35, top + 4, 0xFFFFFF, false);
-
+                Font font = ModSelectionScreen.this.font;
+                int textX = left + 32;
+                int textW = width - 36;
+                guiGraphics.drawString(font, GuiUtil.ellipsize(font, mod.name(), textW), textX, top + 6, 0xFFFFFF, true);
                 String details = mod.id() + " v" + mod.version();
-                guiGraphics.drawString(ModSelectionScreen.this.font, details, left + 35, top + 16, 0x888888, false);
+                guiGraphics.drawString(font, GuiUtil.ellipsize(font, details, textW), textX, top + 17, GuiUtil.SUBTEXT, false);
 
-                guiGraphics.fill(left, top + height - 1, left + width, top + height, 0x1AFFFFFF);
+                guiGraphics.fill(left + 2, top + height - 1, left + width - 2, top + height, 0x18FFFFFF);
             }
 
             @Override

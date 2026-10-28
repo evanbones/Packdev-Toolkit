@@ -1,17 +1,24 @@
 package com.evandev.packdev_toolkit.client.export;
 
+import com.evandev.packdev_toolkit.client.gui.GuiUtil;
+import com.evandev.packdev_toolkit.client.gui.ScrollListWidget;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-class TreeEntry extends ObjectSelectionList.Entry<TreeEntry> {
+class TreeEntry implements ScrollListWidget.Entry {
+    static final int INDENT = 10;
+    private static final int CHECKBOX_SIZE = 10;
+    private static final int LEFT_PAD = 3;
+    private static final int RIGHT_PAD = 4;
+
     public final TreeNode node;
     private final PackBrowserScreen screen;
     private final ResourceListWidget widget;
@@ -24,86 +31,86 @@ class TreeEntry extends ObjectSelectionList.Entry<TreeEntry> {
         this.isSearching = isSearching;
     }
 
-    @Override
-    public @NotNull Component getNarration() {
-        return Component.literal(node.name);
+    private int checkboxX(int left) {
+        return left + LEFT_PAD + (isSearching ? 0 : node.depth * INDENT);
     }
 
+    private int labelX(int left) {
+        return checkboxX(left) + CHECKBOX_SIZE + 22;
+    }
+
+    private String getLabel() {
+        return node.isDirectory ? node.name + "/" : node.name;
+    }
+
+    /**
+     * Search results leave out the folder, which is shortened to fit instead, so one deep path doesn't make the
+     * whole list scroll.
+     */
     int getContentWidth() {
-        int indent = isSearching ? 0 : node.depth * 12;
-        String label = node.isDirectory ? node.name + "/" : (isSearching ? node.relativePath : node.name);
-        return indent + 34 + screen.getFont().width(label);
+        return labelX(0) + screen.getFont().width(getLabel()) + RIGHT_PAD;
     }
 
     @Override
-    public void render(@NotNull GuiGraphics guiGraphics, int index, int top, int left, int width, int height, int mouseX, int mouseY, boolean isHovered, float partialTick) {
-        boolean isSelected = false;
-        List<String> nestedFiles = new ArrayList<>();
-
-        if (!node.isDirectory) {
-            isSelected = screen.selectedPaths.contains(node.relativePath);
-        } else {
-            screen.gatherNestedFiles(node, nestedFiles);
-            int selCount = 0;
-            for (String path : nestedFiles) {
-                if (screen.selectedPaths.contains(path)) {
-                    selCount++;
-                }
-            }
-            if (selCount == nestedFiles.size() && !nestedFiles.isEmpty()) {
-                isSelected = true;
-            }
+    public void render(GuiGraphics guiGraphics, int top, int left, int width, int height, int mouseX, int mouseY, boolean isHovered) {
+        if (node == screen.getSelectedNode()) {
+            guiGraphics.fill(left, top, left + width, top + height, GuiUtil.ROW_SELECTED);
+        } else if (isHovered) {
+            guiGraphics.fill(left, top, left + width, top + height, GuiUtil.ROW_HOVER);
         }
-
-        int startX = left + 2 - widget.getScrollX();
-        int indent = isSearching ? 0 : node.depth * 12;
-        int cbX = startX + indent;
-        int cbY = top + (height - 12) / 2;
 
         if (!isSearching) {
-            screen.renderTreeGuides(guiGraphics, node, left + 2 - widget.getScrollX(), top);
+            screen.renderTreeGuides(guiGraphics, node, left + LEFT_PAD, top, height);
         }
 
-        int borderCol = 0xFFA0A0A0;
-        guiGraphics.fill(cbX, cbY, cbX + 10, cbY + 1, borderCol);
-        guiGraphics.fill(cbX, cbY + 9, cbX + 10, cbY + 10, borderCol);
-        guiGraphics.fill(cbX, cbY + 1, cbX + 1, cbY + 9, borderCol);
-        guiGraphics.fill(cbX + 9, cbY + 1, cbX + 10, cbY + 9, borderCol);
+        int cbX = checkboxX(left);
+        int cbY = top + (height - CHECKBOX_SIZE) / 2;
+        renderCheckbox(guiGraphics, cbX, cbY);
 
-        guiGraphics.fill(cbX + 1, cbY + 1, cbX + 9, cbY + 9, 0xFF000000);
+        RenderSystem.enableBlend();
+        guiGraphics.blit(getIcon(), cbX + CHECKBOX_SIZE + 3, top + (height - 16) / 2, 0, 0, 16, 16, 16, 16);
+        RenderSystem.disableBlend();
 
+        Font font = screen.getFont();
+        int labelX = labelX(left);
+        int labelY = top + (height - 8) / 2;
+        // Labels are drawn in full and the list scrolls sideways, so only what's inside the well is visible
+        int visibleLeft = widget.getRowLeft();
+        int visibleRight = visibleLeft + widget.getRowWidth();
+        String label = getLabel();
+        boolean truncated = labelX < visibleLeft || labelX + font.width(label) > visibleRight - RIGHT_PAD;
+        guiGraphics.drawString(font, label, labelX, labelY, node.isDirectory ? GuiUtil.FOLDER_TEXT : GuiUtil.TEXT, true);
+
+        if (isSearching) {
+            // The folder fills whatever space is left in view, cut from the start so the nearest folders stay visible
+            int folderX = labelX + font.width(label) + 6;
+            int folderWidth = visibleRight - folderX - RIGHT_PAD;
+            String folder = node.parent != null ? node.parent.relativePath : "";
+            // A sliver like "...s" doesn't help, so only show the folder when a useful amount of it fits
+            String shownFolder = folderWidth >= 40 ? GuiUtil.ellipsizeStart(font, folder, folderWidth) : "";
+            truncated |= !shownFolder.equals(folder);
+            guiGraphics.drawString(font, shownFolder, folderX, labelY, GuiUtil.SUBTEXT, false);
+        }
+
+        if (isHovered && truncated) {
+            screen.setTooltipForNextRenderPass(Component.literal(node.relativePath));
+        }
+    }
+
+    private void renderCheckbox(GuiGraphics guiGraphics, int x, int y) {
+        int selected;
+        int total;
         if (!node.isDirectory) {
-            if (isSelected) {
-                guiGraphics.fill(cbX + 2, cbY + 2, cbX + 8, cbY + 8, 0xFF4CAF50);
-            }
+            selected = screen.selectedPaths.contains(node.relativePath) ? 1 : 0;
+            total = 1;
         } else {
-            int selCount = 0;
-            for (String path : nestedFiles) {
-                if (screen.selectedPaths.contains(path)) {
-                    selCount++;
-                }
-            }
-            if (selCount == nestedFiles.size() && !nestedFiles.isEmpty()) {
-                guiGraphics.fill(cbX + 2, cbY + 2, cbX + 8, cbY + 8, 0xFF4CAF50);
-            } else if (selCount > 0) {
-                guiGraphics.fill(cbX + 2, cbY + 2, cbX + 8, cbY + 8, 0xFF7F7F7F);
-            }
+            List<String> nestedFiles = new ArrayList<>();
+            screen.gatherNestedFiles(node, nestedFiles);
+            selected = (int) nestedFiles.stream().filter(screen.selectedPaths::contains).count();
+            total = nestedFiles.size();
         }
 
-        ResourceLocation icon = getIcon();
-        guiGraphics.blit(icon, cbX + 14, top + 1, 0, 0, 16, 16, 16, 16);
-
-        String label;
-        int labelColor;
-        if (node.isDirectory) {
-            label = node.name + "/";
-            labelColor = 0xFFD4AF37;
-        } else {
-            label = isSearching ? node.relativePath : node.name;
-            labelColor = 0xFFFFFF;
-        }
-
-        guiGraphics.drawString(screen.getFont(), label, cbX + 34, top + (height - 8) / 2, labelColor, false);
+        GuiUtil.drawCheckbox(guiGraphics, x, y, CHECKBOX_SIZE, total > 0 && selected == total, selected > 0);
     }
 
     private ResourceLocation getIcon() {
@@ -128,28 +135,19 @@ class TreeEntry extends ObjectSelectionList.Entry<TreeEntry> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int left = widget.getRowLeft();
-        int startX = left + 2 - widget.getScrollX();
-        int indent = isSearching ? 0 : node.depth * 12;
-        int cbX = startX + indent;
+        int cbX = checkboxX(widget.getScrolledRowLeft());
 
         boolean isShift = Screen.hasShiftDown();
         boolean isCtrl = Screen.hasControlDown();
 
-        if (isShift || isCtrl || (mouseX >= cbX && mouseX <= cbX + 10)) {
+        if (isShift || isCtrl || (mouseX >= cbX && mouseX <= cbX + CHECKBOX_SIZE)) {
             boolean nowSelected;
             if (!node.isDirectory) {
                 nowSelected = !screen.selectedPaths.contains(node.relativePath);
             } else {
                 List<String> nestedFiles = new ArrayList<>();
                 screen.gatherNestedFiles(node, nestedFiles);
-                int selCount = 0;
-                for (String path : nestedFiles) {
-                    if (screen.selectedPaths.contains(path)) {
-                        selCount++;
-                    }
-                }
-                nowSelected = (selCount != nestedFiles.size());
+                nowSelected = !screen.selectedPaths.containsAll(nestedFiles);
             }
 
             if (isShift && screen.lastClickedCheckboxPath != null) {
